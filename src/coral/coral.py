@@ -38,7 +38,7 @@ class CoralNode(MiddlewareCommunicator):
             self.receivers,
             receiver_func=self.__on_receiver_callback,
             callback_func=self.__on_payload_callback,
-            timeout=self.meta.receiver_timeout
+            timeout=self.meta.receiver_timeout,
         )
 
     @property
@@ -68,20 +68,49 @@ class CoralNode(MiddlewareCommunicator):
     @property
     def run_params(self):
         return self.params.run
-    
+
     def __queue(self):
-        if self.process.run_mode == 'threads':
+        """
+        Return a queue object based on the run mode of the process.
+
+        Returns:
+            - If the run mode is 'threads', return a queue.Queue object with a maximum size of self.process.max_qsize.
+            - If the run mode is not 'threads', return a multiprocessing.Queue object with a maximum size of self.process.max_qsize.
+        """
+        if self.process.run_mode == "threads":
             return queue.Queue(maxsize=self.process.max_qsize)
         else:
             return multiprocessing.Queue(maxsize=self.process.max_qsize)
-    
+
     def __process_cls(self):
-        if self.process.run_mode == 'threads':
+        """
+        Return the appropriate class for process execution based on the run mode.
+
+        Parameters:
+            None
+
+        Returns:
+            Type: Either `Thread` or `multiprocessing.Process`
+
+        """
+        if self.process.run_mode == "threads":
             return Thread
         else:
             return multiprocessing.Process
 
     def __init_senders(self, metas: List[SenderModel]):
+        """
+        Initialize the senders for the given list of SenderModel objects.
+
+        Parameters:
+            metas (List[SenderModel]): A list of SenderModel objects containing the required metadata for each sender.
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
         for meta in metas:
             self.__sender = MiddlewareCommunicator.register(
                 meta.data_type,
@@ -90,13 +119,29 @@ class CoralNode(MiddlewareCommunicator):
                 meta.topic,
                 carrier=meta.carries,
                 should_wait=meta.blocking,
-                proxy_broker_spawn='thread',
-                pubsub_monitor_listener_spawn='thread',
+                proxy_broker_spawn="thread",
+                pubsub_monitor_listener_spawn="thread",
                 **meta.params,
             )(self.__sender)
         self.activate_communication(self.__sender, mode=self.mode.sender)
 
     def __init_receivers(self, metas: List[ReceiverModel]):
+        """
+        Initializes a list of receiver functions based on the given receiver models.
+
+        Args:
+            metas (List[ReceiverModel]): A list of receiver models.
+
+        Returns:
+            List[Callable]: A list of receiver functions.
+
+        Raises:
+            None
+
+        Example Usage:
+            >>> __init_receivers([ReceiverModel1, ReceiverModel2])
+            [<function __lambda_recevier_0 at 0x7f0e8c672160>, <function __lambda_recevier_1 at 0x7f0e8c672280>]
+        """
         receivers = []
         default_func = self.__receiver_wrapper(
             f"__lambda_recevier_{0}", lambda x: (DEFAULT_NO_RECEVIER_MSG,)
@@ -112,31 +157,57 @@ class CoralNode(MiddlewareCommunicator):
                 meta.topic,
                 carrier=meta.carries,
                 should_wait=meta.blocking,
-                proxy_broker_spawn='thread',
-                pubsub_monitor_listener_spawn='thread',
+                proxy_broker_spawn="thread",
+                pubsub_monitor_listener_spawn="thread",
                 **meta.params,
             )(func)
             self.activate_communication(receiver, mode=self.mode.receiver)
             receivers.append(receiver)
         if not receivers:
-            logger.warning(f'no receiver, use default receiver!!!')
+            logger.warning(f"no receiver, use default receiver!!!")
             receivers.append(default_func)
         return receivers
 
     def __sender(self, *args, **kwargs):
+        """
+        Send data using the sender method and log the result.
+
+        Args:
+            payload (dict): A dictionary containing the payload data.
+            context (dict): A dictionary containing the context data.
+
+        Returns:
+            Any: The data returned by the sender method.
+        """
         payload = kwargs.pop("payload", {})
         context = kwargs.pop("context", {})
         data = self.sender(payload, context)
-        logger.debug(f'{self.__class__.__name__} send data: {data}')
+        logger.debug(f"{self.__class__.__name__} send data: {data}")
         return data
 
     def __init(self):
+        """
+        Initializes the class.
+
+        :return: The initialized context.
+        """
         context = {}
         self.init(context)
         logger.info(f"{self.__class__.__name__} init context: {context}")
         return context
 
     def __receiver_wrapper(self, name: str, func: type):
+        """
+        A wrapper function that takes in a name and a function object and returns a new function that calls the input function with the given arguments.
+
+        Parameters:
+            name (str): The name of the new function.
+            func (type): The function object to be wrapped.
+
+        Returns:
+            Function: A new function object that calls the input function with the given arguments.
+        """
+
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
@@ -145,6 +216,15 @@ class CoralNode(MiddlewareCommunicator):
         return wrapper
 
     def __run(self):
+        """
+        Runs the function indefinitely, continuously checking for payloads in the queue.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         context = self.__init()
         while True:
             if self._queue.empty():
@@ -155,6 +235,16 @@ class CoralNode(MiddlewareCommunicator):
             self.__sender(self, payload=payload, context=context)
 
     def __on_payload_callback(self, payload: Dict, context: Dict = {}):
+        """
+        Callback function for handling payloads.
+
+        Args:
+            payload (Dict): The payload to be processed.
+            context (Dict, optional): The context for processing the payload. Defaults to {}.
+
+        Returns:
+            None
+        """
         if self.process.enable_parallel:
             if not self._queue.full():
                 self._queue.put_nowait(payload)
@@ -166,6 +256,15 @@ class CoralNode(MiddlewareCommunicator):
             self.__sender(self, payload=payload, context=context)
 
     def __on_receiver_callback(self, receiver):
+        """
+        Executes the receiver callback function and returns the result.
+
+        :param receiver: The receiver callback function.
+        :type receiver: Callable[[Any], Tuple[Optional[Any], ...]]
+
+        :return: A dictionary containing the topic and the payload.
+        :rtype: Dict[str, Any]
+        """
         _payload = receiver(self)
         if _payload[0] is None:
             return None
@@ -182,11 +281,37 @@ class CoralNode(MiddlewareCommunicator):
         return {topic: _payload[0]}
 
     def __run_background_senders(self):
+        """
+        Runs background senders.
+
+        This function starts the background processing program for each index in the range of the count of processes. It creates a new process for each index using the _process_cls class and starts the process by calling the __run method. The name of each process is set as 'coral_{self.process.run_mode}_{idx}'.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         # 启动后台处理程序
         for idx in range(self.process.count):
-            self._process_cls(target=self.__run, name=f'coral_{self.process.run_mode}_{idx}').start()
+            self._process_cls(
+                target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
+            ).start()
 
     def on_solo_receivers(self):
+        """
+        Execute the on_solo_receivers function.
+        This function iterates over a list of receivers and calls the __on_receiver_callback
+        method for each receiver. If a payload is returned from the callback, the __on_payload_callback
+        method is called with the payload and the context. This process continues indefinitely
+        until the program is terminated.
+
+        Parameters:
+            self (object): The current instance of the class.
+
+        Returns:
+            None
+        """
         context = self.__init()
         while True:
             for receiver in self.receivers:
@@ -194,8 +319,23 @@ class CoralNode(MiddlewareCommunicator):
                 if payload is None:
                     continue
                 self.__on_payload_callback(payload, context)
-    
+
     def on_process_receviers(self):
+        """
+        Runs the process for all receivers.
+
+        This function runs the background senders and then enters an infinite loop.
+        In each iteration of the loop, it iterates over all the receivers and
+        calls the __on_receiver_callback method for each receiver. If the
+        __on_receiver_callback method returns a non-None payload, it calls the
+        __on_payload_callback method with that payload.
+
+        Parameters:
+        None
+
+        Returns:
+        None
+        """
         self.__run_background_senders()
         while True:
             for receiver in self.receivers:
@@ -205,12 +345,45 @@ class CoralNode(MiddlewareCommunicator):
                 self.__on_payload_callback(payload)
 
     def init(self, context: Dict[str, Any]):
+        """
+        Initializes the object with the provided context.
+
+        Parameters:
+            context (Dict[str, Any]): A dictionary containing the context information.
+
+        Raises:
+            NotImplementedError: This method is not implemented and should be overridden in a subclass.
+        """
         raise NotImplementedError
 
     def sender(self, payload: Dict[str, Any], context: Dict[str, Any]) -> Tuple:
+        """
+        Send a payload to the recipient.
+
+        Args:
+            payload (Dict[str, Any]): The payload to be sent.
+            context (Dict[str, Any]): The context in which the payload is sent.
+
+        Returns:
+            Tuple: A tuple containing the result of the send operation.
+
+        Raises:
+            NotImplementedError: If the send operation is not implemented.
+        """
         raise NotImplementedError
 
     def run(self):
+        """
+        Run the function.
+
+        This function is responsible for executing the logic of the program. It checks if the process is enabled for parallel execution and calls the appropriate function accordingly.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         if self.process.enable_parallel:
             self.on_process_receviers()
         else:

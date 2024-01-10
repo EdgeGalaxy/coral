@@ -89,6 +89,15 @@ class BaseParse:
         raise NotImplementedError
     
     def __init_data(self, data) -> ConfigModel:
+        """
+        Initializes the data by creating a new instance of the ConfigModel class using the provided data.
+
+        Parameters:
+            data (Any): The data to be used to initialize the ConfigModel instance.
+
+        Returns:
+            ConfigModel: The newly created ConfigModel instance.
+        """
         return ConfigModel(**data)
     
     @property

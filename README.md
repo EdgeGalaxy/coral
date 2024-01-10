@@ -11,7 +11,7 @@
 - 支持多种消息类型通信
     - Image
     - Audio
-    - Object
+    - NativeObject
 - 支持自定义参数及指定类型
 - 通过XML语言定义节点信息，可通过XML还原节点
     - XML解析: xml2json
