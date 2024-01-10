@@ -11,7 +11,7 @@
                 "cls_name": "Node1",
                 "topic": "/node1",
                 "carries": "tcp",
-                "blocking": false,
+                "blocking": true,
                 "params": {
                     "socket_sub_port": 5759,
                     "socket_pub_port": 5758

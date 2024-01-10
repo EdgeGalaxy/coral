@@ -1,5 +1,5 @@
 {
-    "process": {},
+    "process": {"enable_parallel": true},
     "meta": {
         "mode": "pubsub",
         "receiver_mode": "single",

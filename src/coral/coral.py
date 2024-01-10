@@ -1,5 +1,6 @@
 import os
 import queue
+import multiprocessing
 from typing import Dict, List, Union, Any, Tuple
 from loguru import logger
 from threading import Thread
@@ -24,11 +25,13 @@ from .parser import (
 
 
 class CoralNode(MiddlewareCommunicator):
+    node_name = None
     config_path = "config.xml"
 
     def __init__(self):
         self.__config = CoralParser.parse(self.config_path)
-        self._queue = queue.Queue(maxsize=self.process.max_qsize)
+        self._queue = self.__queue()
+        self._process_cls = self.__process_cls()
         self.receivers = self.__init_receivers(self.meta.receivers)
         self.__init_senders(self.meta.senders)
         self.sync_message_filter = TimeSyncMessagesFilter(
@@ -37,8 +40,6 @@ class CoralNode(MiddlewareCommunicator):
             callback_func=self.__on_payload_callback,
             timeout=self.meta.receiver_timeout
         )
-
-
 
     @property
     def config(self) -> BaseParse:
@@ -67,6 +68,18 @@ class CoralNode(MiddlewareCommunicator):
     @property
     def run_params(self):
         return self.params.run
+    
+    def __queue(self):
+        if self.process.run_mode == 'threads':
+            return queue.Queue(maxsize=self.process.max_qsize)
+        else:
+            return multiprocessing.Queue(maxsize=self.process.max_qsize)
+    
+    def __process_cls(self):
+        if self.process.run_mode == 'threads':
+            return Thread
+        else:
+            return multiprocessing.Process
 
     def __init_senders(self, metas: List[SenderModel]):
         for meta in metas:
@@ -106,6 +119,7 @@ class CoralNode(MiddlewareCommunicator):
             self.activate_communication(receiver, mode=self.mode.receiver)
             receivers.append(receiver)
         if not receivers:
+            logger.warning(f'no receiver, use default receiver!!!')
             receivers.append(default_func)
         return receivers
 
@@ -113,12 +127,13 @@ class CoralNode(MiddlewareCommunicator):
         payload = kwargs.pop("payload", {})
         context = kwargs.pop("context", {})
         data = self.sender(payload, context)
-        print(f'{self.__class__.__name__} send data: {data}')
+        logger.debug(f'{self.__class__.__name__} send data: {data}')
         return data
 
     def __init(self):
         context = {}
         self.init(context)
+        logger.info(f"{self.__class__.__name__} init context: {context}")
         return context
 
     def __receiver_wrapper(self, name: str, func: type):
@@ -169,7 +184,7 @@ class CoralNode(MiddlewareCommunicator):
     def __run_background_senders(self):
         # 启动后台处理程序
         for idx in range(self.process.count):
-            Thread(target=self.__run, name=f'coral_process_{idx}').start()
+            self._process_cls(target=self.__run, name=f'coral_{self.process.run_mode}_{idx}').start()
 
     def on_solo_receivers(self):
         context = self.__init()
@@ -180,7 +195,7 @@ class CoralNode(MiddlewareCommunicator):
                     continue
                 self.__on_payload_callback(payload, context)
     
-    def on_threads_receviers(self):
+    def on_process_receviers(self):
         self.__run_background_senders()
         while True:
             for receiver in self.receivers:
@@ -197,6 +212,6 @@ class CoralNode(MiddlewareCommunicator):
 
     def run(self):
         if self.process.enable_parallel:
-            self.on_threads_receviers()
+            self.on_process_receviers()
         else:
             self.on_solo_receivers()

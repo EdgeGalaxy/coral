@@ -1,7 +1,8 @@
 
 from functools import cached_property
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union
 
+from loguru import logger
 from pydantic import BaseModel, Field, computed_field
 
 
@@ -77,7 +78,8 @@ class ConfigModel(BaseModel):
 class BaseParse:
     def __init__(self, data: dict):
         # self.check(data)
-        self.__data = self.init_data(data)
+        self.__data = self.__init_data(data)
+        logger.info(f"config data: {data}")
 
     # def check(cls, data: dict):
     #     raise NotImplementedError
@@ -86,7 +88,7 @@ class BaseParse:
     def parse(cls, config_path: str) -> 'BaseParse':
         raise NotImplementedError
     
-    def init_data(self, data) -> ConfigModel:
+    def __init_data(self, data) -> ConfigModel:
         return ConfigModel(**data)
     
     @property
