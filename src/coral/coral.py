@@ -1,9 +1,10 @@
-import os
+import time
 import queue
 import multiprocessing
 from typing import Dict, List, Union, Any, Tuple
 from loguru import logger
 from threading import Thread
+from collections import deque
 
 from wrapyfi.connect.listeners import Listener
 from wrapyfi.connect.clients import Client
@@ -34,6 +35,14 @@ class CoralNode(MiddlewareCommunicator):
         self._process_cls = self.__process_cls()
         self.receivers = self.__init_receivers(self.meta.receivers)
         self.__init_senders(self.meta.senders)
+        # run time
+        self.run_time = time.time()
+        # fps cal
+        self.receiver_times = deque(maxlen=1000)
+        self.sender_times = deque(maxlen=1000)
+        self.receiver_times.append(self.run_time)
+        self.sender_times.append(self.run_time)
+        # time sync message
         self.sync_message_filter = TimeSyncMessagesFilter(
             self.receivers,
             receiver_func=self.__on_receiver_callback,
@@ -179,11 +188,17 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             Any: The data returned by the sender method.
         """
-        payload = kwargs.pop("payload", {})
-        context = kwargs.pop("context", {})
-        data = self.sender(payload, context)
-        logger.debug(f"{self.__class__.__name__} send data: {data}")
-        return data
+        try:
+            payload = kwargs.pop("payload", {})
+            context = kwargs.pop("context", {})
+            data = self.sender(payload, context)
+            # 记录发送的时间
+            current_time = time.time()
+            self.sender_times.append(current_time)
+            logger.debug(f"{self.__class__.__name__} send data: {data}")
+            return data
+        except Exception as e:
+            logger.exception(f'__sender func error: {e}')
 
     def __init(self):
         """
@@ -233,7 +248,7 @@ class CoralNode(MiddlewareCommunicator):
             if payload is None:
                 continue
             self.__sender(self, payload=payload, context=context)
-
+    
     def __on_payload_callback(self, payload: Dict, context: Dict = {}):
         """
         Callback function for handling payloads.
@@ -245,6 +260,9 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
+        # 记录接收数据的时间
+        current_time = time.time()
+        self.receiver_times.append(current_time)
         if self.process.enable_parallel:
             if not self._queue.full():
                 self._queue.put_nowait(payload)
@@ -254,6 +272,11 @@ class CoralNode(MiddlewareCommunicator):
                 )
         else:
             self.__sender(self, payload=payload, context=context)
+        # display fps 
+        self.logger_fps()
+    
+    def logger_fps(self):
+        logger.info(f"{self.__class__.__name__} receiver fps: {self.receiver_fps} sender fps: {self.sender_fps}")
 
     def __on_receiver_callback(self, receiver):
         """
@@ -297,6 +320,20 @@ class CoralNode(MiddlewareCommunicator):
             self._process_cls(
                 target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
             ).start()
+    
+    @property
+    def receiver_fps(self):
+        duration = self.receiver_times[-1] - self.receiver_times[0]
+        if duration == 0:
+            return 0
+        return len(self.receiver_times) / duration
+    
+    @property
+    def sender_fps(self):
+        duration = self.sender_times[-1] - self.sender_times[0]
+        if duration == 0:
+            return 0
+        return len(self.sender_times) / duration
 
     def on_solo_receivers(self):
         """
@@ -339,10 +376,13 @@ class CoralNode(MiddlewareCommunicator):
         self.__run_background_senders()
         while True:
             for receiver in self.receivers:
-                payload = self.__on_receiver_callback(receiver)
-                if payload is None:
-                    continue
-                self.__on_payload_callback(payload)
+                try:
+                    payload = self.__on_receiver_callback(receiver)
+                    if payload is None:
+                        continue
+                    self.__on_payload_callback(payload)
+                except Exception as e:
+                    logger.exception(e)
 
     def init(self, context: Dict[str, Any]):
         """

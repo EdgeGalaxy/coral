@@ -16,8 +16,6 @@ class Node2(CoralNode):
         context.update({'init': 'node1'})
 
     def sender(self, payload: dict, context: dict):
-        print(self.run_params)
-        print(payload)
         print(context)
         return 'node2',
 
