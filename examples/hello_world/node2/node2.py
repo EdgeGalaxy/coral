@@ -7,14 +7,14 @@ sys.path.append(os.path.abspath('../../../src/coral'))
 from coral import CoralNode, ParamsModel, ReturnPayload, RTManager, PTManager
 
 
-@RTManager.register('return_payload')
+@RTManager.register()
 class Node2ReturnPayload(ReturnPayload):
     boxes: List
     classes_id: int
     tag: str
 
 
-@PTManager.register('params_model')
+@PTManager.register()
 class Node2ParamsModel(ParamsModel):
     model: str
     run: dict

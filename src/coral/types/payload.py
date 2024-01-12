@@ -82,13 +82,14 @@ class ParamsManager:
     registry = {}
 
     @classmethod
-    def register(cls: 'ParamsManager', params_name: str):
+    def register(cls: 'ParamsManager', params_name: str = None):
         def decorator(cls_: ParamsModel):
             if not issubclass(cls_, ParamsModel):
                 raise TypeError(f"Invalid class model type: {cls_}, should be a subclass of {ParamsModel.__name__}")
-            if params_name in cls.registry:
-                raise ValueError(f"Duplicate params name: {params_name}")
-            cls.registry[params_name] = cls_
+            _params_name = params_name or cls_.__name__
+            if _params_name in cls.registry:
+                raise ValueError(f"Duplicate params name: {_params_name}")
+            cls.registry[_params_name] = cls_
             return cls_
         return decorator
     
@@ -103,13 +104,14 @@ class ReturnManager:
     registry = {}
 
     @classmethod
-    def register(cls: 'ReturnManager', return_name: str):
+    def register(cls: 'ReturnManager', return_name: str = None):
         def decorator(cls_: ReturnPayload):
             if not issubclass(cls_, ReturnPayload):
                 raise TypeError(f"Invalid class model type: {cls_}, should be a subclass of {ReturnPayload.__name__}")
-            if return_name in cls.registry:
-                raise ValueError(f"Duplicate return name: {return_name}")
-            cls.registry[return_name] = cls_
+            _return_name = return_name or cls_.__name__
+            if _return_name in cls.registry:
+                raise ValueError(f"Duplicate return name: {_return_name}")
+            cls.registry[_return_name] = cls_
             return cls_
         return decorator
 
