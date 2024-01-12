@@ -1,27 +1,28 @@
+import uuid
 import time
 import queue
 import multiprocessing
-from typing import Dict, List, Union, Any, Tuple
+from typing import Dict, List, Any
 from loguru import logger
 from threading import Thread
 from collections import deque
 
-from wrapyfi.connect.listeners import Listener
-from wrapyfi.connect.clients import Client
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
 
-from .messages.sync import TimeSyncMessagesFilter
-from .constants import DEFAULT_NO_RECEVIER_MSG, DEFAULT_NO_TOPIC
+from .constants import DEFAULT_NO_RECEVIER_MSG
 from .parse import CoralParser
-from .parser._base import RECEIVER_CLUSTER_MODE
-from .parser import (
-    BaseParse,
+from .parser import BaseParse
+from .types import (
     MetaModel,
     ParamsModel,
     SenderModel,
     ReceiverModel,
     ModeModel,
     ProcessModel,
+    RawPayload,
+    FirstPayload,
+    ObjectsModel,
+    ReturnPayload
 )
 
 
@@ -34,7 +35,7 @@ class CoralNode(MiddlewareCommunicator):
         self._queue = self.__queue()
         self._process_cls = self.__process_cls()
         self.receivers = self.__init_receivers(self.meta.receivers)
-        self.__init_senders(self.meta.senders)
+        self.__init_sender(self.meta.sender)
         # run time
         self.run_time = time.time()
         # fps cal
@@ -42,13 +43,6 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times = deque(maxlen=1000)
         self.receiver_times.append(self.run_time)
         self.sender_times.append(self.run_time)
-        # time sync message
-        self.sync_message_filter = TimeSyncMessagesFilter(
-            self.receivers,
-            receiver_func=self.__on_receiver_callback,
-            callback_func=self.__on_payload_callback,
-            timeout=self.meta.receiver_timeout,
-        )
 
     @property
     def config(self) -> BaseParse:
@@ -69,14 +63,6 @@ class CoralNode(MiddlewareCommunicator):
     @property
     def mode(self) -> ModeModel:
         return self.meta._mode
-
-    @property
-    def init_params(self):
-        return self.params.init
-
-    @property
-    def run_params(self):
-        return self.params.run
 
     def __queue(self):
         """
@@ -107,12 +93,12 @@ class CoralNode(MiddlewareCommunicator):
         else:
             return multiprocessing.Process
 
-    def __init_senders(self, metas: List[SenderModel]):
+    def __init_sender(self, meta: SenderModel):
         """
-        Initialize the senders for the given list of SenderModel objects.
+        Initialize the sender for the given SenderModel object.
 
         Parameters:
-            metas (List[SenderModel]): A list of SenderModel objects containing the required metadata for each sender.
+            meta (SenderModel): A list of SenderModel objects containing the required metadata for each sender.
 
         Returns:
             None
@@ -120,18 +106,20 @@ class CoralNode(MiddlewareCommunicator):
         Raises:
             None
         """
-        for meta in metas:
-            self.__sender = MiddlewareCommunicator.register(
-                meta.data_type,
-                meta.mware,
-                meta.cls_name,
-                meta.topic,
-                carrier=meta.carries,
-                should_wait=meta.blocking,
-                proxy_broker_spawn="thread",
-                pubsub_monitor_listener_spawn="thread",
-                **meta.params,
-            )(self.__sender)
+        if meta is None:
+            logger.warning(f"{self.__class__.__name__} sender is None!")
+            return
+        self.__sender = MiddlewareCommunicator.register(
+            meta.data_type,
+            meta.mware,
+            meta.cls_name,
+            meta.topic,
+            carrier=meta.carrier,
+            should_wait=meta.blocking,
+            proxy_broker_spawn="thread",
+            pubsub_monitor_listener_spawn="thread",
+            **meta.params,
+        )(self.__sender)
         self.activate_communication(self.__sender, mode=self.mode.sender)
 
     def __init_receivers(self, metas: List[ReceiverModel]):
@@ -164,10 +152,11 @@ class CoralNode(MiddlewareCommunicator):
                 meta.mware,
                 meta.cls_name,
                 meta.topic,
-                carrier=meta.carries,
+                carrier=meta.carrier,
                 should_wait=meta.blocking,
                 proxy_broker_spawn="thread",
                 pubsub_monitor_listener_spawn="thread",
+                payload_cls=meta.payload_cls,
                 **meta.params,
             )(func)
             self.activate_communication(receiver, mode=self.mode.receiver)
@@ -189,14 +178,41 @@ class CoralNode(MiddlewareCommunicator):
             Any: The data returned by the sender method.
         """
         try:
-            payload = kwargs.pop("payload", {})
-            context = kwargs.pop("context", {})
-            data = self.sender(payload, context)
+            payload: RawPayload = kwargs.pop("payload", {})
+            context: Dict = kwargs.pop("context", {})
+            sender_payload = self.sender(payload, context)
+            # 尝试根据返回的dict初始化为return_cls的类型
+            if isinstance(sender_payload, dict):
+                try:
+                    sender_payload = self.meta.sender.return_cls(**sender_payload)
+                except Exception as e:
+                    logger.exception(f'not init by return type: {self.meta.sender.return_cls.__name__}, error is {e}')
+                    raise e
+
+            # 首节点，类型必须为FirstPayload, 需要包含raw字段
+            if payload.raw is None: 
+                if not isinstance(sender_payload, FirstPayload):
+                    raise TypeError(f"sender payload type error: {type(sender_payload)}, first payload is subclass of [ {FirstPayload.__name__} ]")
+                # 记录原始值
+                payload.raw = sender_payload.raw
+            else:
+                # TODO: 判断是不是objectsModel类型
+                if isinstance(sender_payload, list):
+                    raise TypeError(f"not support list return, {sender_payload}!!")
+                elif isinstance(sender_payload, self.meta.sender.return_cls):
+                    payload.metas.append({f'node.{self.config.node_id}': sender_payload})
+                else:
+                    raise TypeError(f"sender payload type error: {type(sender_payload)}, should is [ {self.meta.sender.return_cls.__name__} !!!!")
+
+                payload.node_id = '$'.join([payload.node_id, self.config.node_id])
+                
+            # 更新发送节点的node_id
             # 记录发送的时间
-            current_time = time.time()
-            self.sender_times.append(current_time)
-            logger.debug(f"{self.__class__.__name__} send data: {data}")
-            return data
+            crt_time = time.time()
+            self.sender_times.append(crt_time)
+            logger.debug(f"{self.__class__.__name__} send data")
+            data = payload.model_dump()
+            return data,
         except Exception as e:
             logger.exception(f'__sender func error: {e}')
 
@@ -249,7 +265,7 @@ class CoralNode(MiddlewareCommunicator):
                 continue
             self.__sender(self, payload=payload, context=context)
     
-    def __on_payload_callback(self, payload: Dict, context: Dict = {}):
+    def __on_payload_callback(self, payload: RawPayload, context: Dict = {}):
         """
         Callback function for handling payloads.
 
@@ -261,8 +277,8 @@ class CoralNode(MiddlewareCommunicator):
             None
         """
         # 记录接收数据的时间
-        current_time = time.time()
-        self.receiver_times.append(current_time)
+        crt_time = time.time()
+        self.receiver_times.append(crt_time)
         if self.process.enable_parallel:
             if not self._queue.full():
                 self._queue.put_nowait(payload)
@@ -278,7 +294,7 @@ class CoralNode(MiddlewareCommunicator):
     def logger_fps(self):
         logger.info(f"{self.__class__.__name__} receiver fps: {self.receiver_fps} sender fps: {self.sender_fps}")
 
-    def __on_receiver_callback(self, receiver):
+    def __on_receiver_callback(self, receiver) -> RawPayload:
         """
         Executes the receiver callback function and returns the result.
 
@@ -291,17 +307,16 @@ class CoralNode(MiddlewareCommunicator):
         _payload = receiver(self)
         if _payload[0] is None:
             return None
-        receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(
-            receiver.__qualname__
-        )
-        if not receiver_wrapper_func:
-            topic = DEFAULT_NO_TOPIC
+        payload = _payload[0]
+
+        if payload == DEFAULT_NO_RECEVIER_MSG:
+            return RawPayload(node_id=self.config.node_id)
         else:
-            receiver_func: Union[Listener, Client] = receiver_wrapper_func[
-                "communicator"
-            ][0]["wrapped_executor"]
-            topic = receiver_func.in_topic
-        return {topic: _payload[0]}
+            receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(receiver.__qualname__)
+            communicator = receiver_wrapper_func["communicator"][0]
+            receiver_func_kwargs = communicator["return_func_kwargs"]
+            payload_cls: RawPayload = receiver_func_kwargs['payload_cls']
+            return payload_cls(**payload)
 
     def __run_background_senders(self):
         """
@@ -320,7 +335,7 @@ class CoralNode(MiddlewareCommunicator):
             self._process_cls(
                 target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
             ).start()
-    
+        
     @property
     def receiver_fps(self):
         duration = self.receiver_times[-1] - self.receiver_times[0]
@@ -396,7 +411,7 @@ class CoralNode(MiddlewareCommunicator):
         """
         raise NotImplementedError
 
-    def sender(self, payload: Dict[str, Any], context: Dict[str, Any]) -> Tuple:
+    def sender(self, payload: Dict[str, Any], context: Dict[str, Any]) -> RawPayload:
         """
         Send a payload to the recipient.
 

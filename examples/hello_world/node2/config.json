@@ -1,44 +1,30 @@
 {
-    "process": {"enable_parallel": true},
+    "node_id": "node2",
     "meta": {
         "mode": "pubsub",
-        "receiver_mode": "single",
-        "receiver_timeout": 0.5,
         "receivers": [
             {
-                "data_type": "NativeObject",
+                "raw_type": "RawImage",
                 "mware": "zeromq",
-                "cls_name": "Node1",
-                "topic": "/node1",
-                "carries": "tcp",
-                "blocking": false,
+                "topic": "/topic1",
                 "params": {
                     "socket_sub_port": 5759,
                     "socket_pub_port": 5758
                 }
             }
         ],
-        "senders": [
-            {
-                "data_type": "NativeObject",
+        "sender": {
+                "raw_type": "RawImage",
                 "mware": "zeromq",
-                "cls_name": "Node2",
-                "topic": "/node2",
-                "carries": "tcp",
-                "blocking": false,
+                "topic": "/topic2",
                 "params": {
                     "socket_sub_port": 5859,
                     "socket_pub_port": 5858
                 }
             }
-        ]
     },
     "params": {
-        "init": {
-            "model": "model_path"
-        },
-        "run": {
-            "width": 100
-        }
+        "model": "model_path",
+        "run": {}
     }
 }

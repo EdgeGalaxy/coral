@@ -1,78 +1,10 @@
 
-from functools import cached_property
-from typing import List, Dict, Union
+from typing import Dict
 
 from loguru import logger
-from pydantic import BaseModel, Field, computed_field
 
+from ..types.config import ConfigModel, MetaModel, ModeModel, ParamsModel
 
-class ReceiverModel(BaseModel):
-    data_type: str = Field(frozen=True) 
-    mware: str = Field(frozen=True) 
-    cls_name: str = Field(frozen=True) 
-    topic: str = Field(frozen=True) 
-    carries: str = Field(frozen=True) 
-    blocking: bool = Field(frozen=True) 
-    params: Dict[str, Union[str, int, bool, float]] = Field(frozen=True) 
-
-
-class SenderModel(BaseModel):
-    data_type: str = Field(frozen=True) 
-    mware: str = Field(frozen=True) 
-    cls_name: str = Field(frozen=True) 
-    topic: str = Field(frozen=True) 
-    carries: str = Field(frozen=True) 
-    blocking: bool = Field(frozen=True) 
-    params: Dict[str, Union[str, int, bool, float]] = Field(frozen=True) 
-
-
-class ModeModel(BaseModel):
-    sender: str
-    receiver: str
-
-
-PUBSUB = 'pubsub'
-REPLY = 'reply'
-RECEIVER_SINGLE_MODE = 'single'
-RECEIVER_CLUSTER_MODE = 'cluster'
-PUBSUM_MODE = ModeModel(sender='publish', receiver='listen')
-REPLY_MODE = ModeModel(sender='reply', receiver='request')
-
-
-class MetaModel(BaseModel):
-    mode: str = Field(frozen=True, default=PUBSUB) 
-    receiver_mode: str = Field(default=RECEIVER_SINGLE_MODE, frozen=True)
-    receiver_timeout: float = Field(default=0.5, frozen=True)
-    receivers: List[ReceiverModel] = Field(frozen=True, default=[])
-    senders: List[SenderModel] = Field(frozen=True, default=[])
-
-
-    @computed_field
-    @cached_property
-    def _mode(self) -> ModeModel:
-        if self.mode == PUBSUB:
-            return PUBSUM_MODE
-        elif self.mode == REPLY:
-            return REPLY_MODE
-        raise ValueError(f"Unsupported mode: {self.mode}")
-
-
-class ParamsModel(BaseModel):
-    init: Dict[str, Union[str, int, bool, float]] = Field(frozen=True, default={})
-    run: Dict[str, Union[str, int, bool, float]] = Field(frozen=True, default={})
-
-
-class ProcessModel(BaseModel):
-    max_qsize: int = Field(frozen=True, default=30)
-    count: int = Field(frozen=True, default=3)
-    run_mode: str = Field(frozen=True, default='threads')
-    enable_parallel: bool = Field(frozen=True, default=False)
-
-
-class ConfigModel(BaseModel):
-    process: ProcessModel = Field(frozen=True, default=ProcessModel(max_qsize=30, count=3, run_mode='threads', enable_parallel=False))
-    meta: MetaModel = Field(frozen=True)
-    params: ParamsModel = Field(frozen=True)
 
 
 class BaseParse:
@@ -103,6 +35,10 @@ class BaseParse:
     @property
     def data(self) -> ConfigModel:
         return self.__data
+
+    @property
+    def node_id(self):
+        return self.data.node_id
     
     @property
     def process(self) -> int:
@@ -118,15 +54,7 @@ class BaseParse:
     
     @property
     def params(self) -> ParamsModel:
-        return self.data.params
-    
-    @property
-    def init(self) -> Dict:
-        return self.params.init
-    
-    @property
-    def run(self) -> Dict:
-        return self.params.run
+        return self.data.params_cls(**self.data.params)
 
 
 if __name__ == '__main__':
@@ -134,8 +62,6 @@ if __name__ == '__main__':
         'process': {},
         'meta': {
             'mode': 'pubsubx',
-            'receiver_mode': 'single',
-            'receiver_timeout': 0.5,
             'receivers': [{
                 'data_type': 'NativeObject',
                 'mware': 'zeromq',
