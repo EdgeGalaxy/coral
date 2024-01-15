@@ -1,11 +1,8 @@
 {
     "node_id": "node2",
     "meta": {
-        "mode": "pubsub",
         "receivers": [
             {
-                "raw_type": "RawImage",
-                "mware": "zeromq",
                 "topic": "/topic1",
                 "params": {
                     "socket_sub_port": 5759,
@@ -14,8 +11,6 @@
             }
         ],
         "sender": {
-                "raw_type": "RawImage",
-                "mware": "zeromq",
                 "topic": "/topic2",
                 "params": {
                     "socket_sub_port": 5859,

@@ -119,7 +119,7 @@ class ReturnManager:
     def default_type(cls):
         if cls.registry:
             return list(cls.registry.keys())[0]
-        return None
+        raise None
 
 
 DTManager = DataTypeManager

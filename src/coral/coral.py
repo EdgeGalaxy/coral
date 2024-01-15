@@ -21,8 +21,6 @@ from .types import (
     ProcessModel,
     RawPayload,
     FirstPayload,
-    ObjectsModel,
-    ReturnPayload
 )
 
 
@@ -43,6 +41,8 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times = deque(maxlen=1000)
         self.receiver_times.append(self.run_time)
         self.sender_times.append(self.run_time)
+        # node info report
+        self.config_schema = self.config.parse_json_schema()
 
     @property
     def config(self) -> BaseParse:

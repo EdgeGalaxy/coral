@@ -2,23 +2,45 @@
 from typing import Dict
 
 from loguru import logger
+from pydantic import create_model, Field
 
-from ..types.config import ConfigModel, MetaModel, ModeModel, ParamsModel
+from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel
 
 
 
 class BaseParse:
     def __init__(self, data: dict):
-        # self.check(data)
         self.__data = self.__init_data(data)
         logger.info(f"config data: {data}")
-
-    # def check(cls, data: dict):
-    #     raise NotImplementedError
     
     @classmethod
     def parse(cls, config_path: str) -> 'BaseParse':
         raise NotImplementedError
+    
+    def parse_json_schema(self):
+        """
+        Parse the JSON schema and generate a ConfigSchemaModel.
+
+        :return: The JSON schema for the ConfigSchemaModel.
+        """
+        _params_cls = self.data._params_cls
+        _return_cls = self.meta.sender.return_cls
+        _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else None
+        _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else None
+        _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else None
+        _sender_topic = self.meta.sender.topic if self.meta.sender else None
+
+        ConfigSchemaModel = create_model(
+            'ConfigSchemaModel',
+            receiver_raw_type = (str, Field(frozen=True, default=_receiver_raw_type)),
+            sender_raw_type = (str, Field(frozen=True, default=_sender_raw_type)),
+            receiver_topic = (str, Field(frozen=True, default=_receiver_topic)),
+            sender_topic = (str, Field(frozen=True, default=_sender_topic)),
+            params_cls=(_params_cls, Field(frozen=True, default=None)), 
+            return_cls=(_return_cls, Field(frozen=True)), 
+            __base__=CoralBaseModel, 
+        )
+        return ConfigSchemaModel.model_json_schema()
     
     def __init_data(self, data) -> ConfigModel:
         """
@@ -54,7 +76,7 @@ class BaseParse:
     
     @property
     def params(self) -> ParamsModel:
-        return self.data.params_cls(**self.data.params)
+        return self.data.params
 
 
 if __name__ == '__main__':

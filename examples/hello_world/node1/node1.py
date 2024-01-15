@@ -6,7 +6,7 @@ from typing import Union
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src/coral'))
 
-from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
+from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, ConfigModel
 
 
 @RTManager.register()
