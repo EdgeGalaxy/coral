@@ -6,11 +6,10 @@ from pydantic import BaseModel
 
 import numpy as np
 from wrapyfi.publishers import Publishers
-from pydantic import validator 
+from pydantic import validator
 
 
 class CoralBaseModel(BaseModel):
-
     class Config:
         arbitrary_types_allowed = True
 
@@ -20,6 +19,7 @@ class Rect(BaseModel):
     left: int
     width: int
     height: int
+
 
 class Attribute(BaseModel):
     id: int
@@ -69,17 +69,26 @@ class BatchRawPayload(BaseModel):
 
 class DataTypeManager:
     registry = {}
-    mapping_types: List[str] = [t.split(':')[0] for t in Publishers.registry.keys()]
+    mapping_types: List[str] = [t.split(":")[0] for t in Publishers.registry.keys()]
 
     @classmethod
-    def register(cls: 'DataTypeManager', payload_type: str, data_type: str = "NativeObject"):
+    def register(
+        cls: "DataTypeManager", payload_type: str, data_type: str = "NativeObject"
+    ):
         def decorator(cls_: Union[RawPayload, MetricsPayload]):
             if data_type not in cls.mapping_types:
-                raise ValueError(f"Invalid mapping type: {data_type}, should include in {cls.mapping_types}")
-            if not issubclass(cls_, RawPayload) and not issubclass(cls_, MetricsPayload):
-                raise TypeError(f"Invalid class model type: {cls_.__name__}, should be a subclass of {RawPayload.__name__}")
+                raise ValueError(
+                    f"Invalid mapping type: {data_type}, should include in {cls.mapping_types}"
+                )
+            if not issubclass(cls_, RawPayload) and not issubclass(
+                cls_, MetricsPayload
+            ):
+                raise TypeError(
+                    f"Invalid class model type: {cls_.__name__}, should be a subclass of {RawPayload.__name__}"
+                )
             cls.registry[payload_type] = (data_type, cls_)
             return cls_
+
         return decorator
 
 
@@ -87,17 +96,20 @@ class ParamsManager:
     registry = {}
 
     @classmethod
-    def register(cls: 'ParamsManager', params_name: str = None):
+    def register(cls: "ParamsManager", params_name: str = None):
         def decorator(cls_: ParamsModel):
             if not issubclass(cls_, ParamsModel):
-                raise TypeError(f"Invalid class model type: {cls_}, should be a subclass of {ParamsModel.__name__}")
+                raise TypeError(
+                    f"Invalid class model type: {cls_}, should be a subclass of {ParamsModel.__name__}"
+                )
             _params_name = params_name or cls_.__name__
             if _params_name in cls.registry:
                 raise ValueError(f"Duplicate params name: {_params_name}")
             cls.registry[_params_name] = cls_
             return cls_
+
         return decorator
-    
+
     @classmethod
     def default_type(cls):
         if cls.registry:
@@ -109,15 +121,18 @@ class ReturnManager:
     registry = {}
 
     @classmethod
-    def register(cls: 'ReturnManager', return_name: str = None):
+    def register(cls: "ReturnManager", return_name: str = None):
         def decorator(cls_: ReturnPayload):
             if not issubclass(cls_, ReturnPayload):
-                raise TypeError(f"Invalid class model type: {cls_}, should be a subclass of {ReturnPayload.__name__}")
+                raise TypeError(
+                    f"Invalid class model type: {cls_}, should be a subclass of {ReturnPayload.__name__}"
+                )
             _return_name = return_name or cls_.__name__
             if _return_name in cls.registry:
                 raise ValueError(f"Duplicate return name: {_return_name}")
             cls.registry[_return_name] = cls_
             return cls_
+
         return decorator
 
     @classmethod
@@ -132,20 +147,20 @@ PTManager = ParamsManager
 RTManager = ReturnManager
 
 
-
 @DTManager.register("RawImage")
 class RawImagePayload(RawPayload):
-
-    @validator('raw')
+    @validator("raw")
     def check_image(cls, v):
         if not isinstance(v, np.ndarray):
-            raise ValueError('Image must be a numpy array')
+            raise ValueError("Image must be a numpy array")
 
         if len(v.shape) != 3 or v.shape[2] not in [3, 4]:
-            raise ValueError('Image must be a 3-channel (RGB/BGR) or 4-channel (RGBA/BGRA) format')
+            raise ValueError(
+                "Image must be a 3-channel (RGB/BGR) or 4-channel (RGBA/BGRA) format"
+            )
 
         if v.dtype != np.uint8:
-            raise ValueError('Image dtype must be uint8')
+            raise ValueError("Image dtype must be uint8")
         return v
 
 

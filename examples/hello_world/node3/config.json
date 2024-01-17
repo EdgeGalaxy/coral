@@ -1,0 +1,29 @@
+{
+    "node_id": "node3",
+    "meta": {
+        "sender": { 
+                "topic": "/topic3",
+                "params": {
+                    "socket_sub_port": 5760,
+                    "socket_pub_port": 5761
+                }
+            }
+    },
+    "generic": {
+        "enable_metrics": true,
+        "metrics_sender": {
+            "raw_type": "Metrics",
+            "topic": "/node3_metrics",
+            "params": {
+                "socket_sub_port": 5860,
+                "socket_pub_port": 5861
+            }
+        }
+    },
+    "params": {
+        "model": "model_path",
+        "run": {
+            "width": 100
+        }
+    }
+}

@@ -1,5 +1,3 @@
-from functools import cached_property
-import uuid
 import time
 import queue
 import multiprocessing
@@ -52,10 +50,13 @@ class CoralNode(MiddlewareCommunicator):
             node_id=self.config.node_id,
             enable=self.config.generic_params.enable_metrics,
         )
-        self.metrics.register_sender(self.config.generic_params.metrics_sender)
+        self.metrics.register_sender(
+            meta=self.config.generic_params.metrics_sender,
+            interval=self.config.generic_params.metrics_interval,
+        )
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
-    
+
     @property
     def skip_frame_count(self):
         return self.config.generic_params.skip_frame
@@ -259,7 +260,7 @@ class CoralNode(MiddlewareCommunicator):
             # 记录发送的时间
             crt_time = time.time()
             self.sender_times.append(crt_time)
-            logger.debug(f"{self.__class__.__name__} send data")
+            logger.debug(f"{payload.node_id} send data")
             data = payload.model_dump()
             return (data,)
         except Exception as e:
@@ -325,9 +326,7 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
-        is_pass = self._record_and_just_is_pass_frame(
-            recv_node_id=payload.node_id
-        )
+        is_pass = self._record_and_just_is_pass_frame(recv_node_id=payload.node_id)
         if is_pass:
             logger.debug(f"{payload.node_id} frame is passed!")
             return
@@ -397,7 +396,7 @@ class CoralNode(MiddlewareCommunicator):
             self._process_cls(
                 target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
             ).start()
-    
+
     def _record_and_just_is_pass_frame(self, recv_node_id):
         """
         A function that records whether a frame is skipped or not and updates the receiver frame count.
@@ -426,7 +425,6 @@ class CoralNode(MiddlewareCommunicator):
             crt_time = time.time()
             self.receiver_times.append(crt_time)
         return is_pass
-
 
     def on_solo_receivers(self):
         """

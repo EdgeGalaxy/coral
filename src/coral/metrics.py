@@ -19,6 +19,7 @@ class CoralNodeMetrics:
     - 单次处理的耗时
     - 数据帧从发送到接收的时间
     """
+
     def __init__(self, enable, gateway_id, pipeline_id, node_id) -> None:
         self.enable = enable
         self.gateway_id = gateway_id
@@ -29,15 +30,15 @@ class CoralNodeMetrics:
         self.__count_drop_frames = self._count_drop_frames()
         self.__cost_process_frames = self._cost_process_frames()
         self.__cost_pendding_frames = self._cost_pendding_frames()
-    
+
     @property
     def default_labels(self):
         return {
             "gateway_id": self.gateway_id,
             "pipeline_id": self.pipeline_id,
-            "node_id": self.node_id
+            "node_id": self.node_id,
         }
-    
+
     def register_sender(self, meta: SenderModel, interval=5):
         if not self.enable:
             logger.warning(f"Metrics disabled! not register any sender")
@@ -55,27 +56,32 @@ class CoralNodeMetrics:
             while True:
                 schedule.run_pending()
                 time.sleep(interval / 2)
-                print(f'run schedule')
-        
+
         Thread(target=run_schedule).start()
         logger.info(f"background register sender: {meta}")
-        
-    
+
     def count_process_frames(self, value: int = 1):
-        return self.set(self.__count_process_frames, value) 
-    
-    def count_drop_frames(self, action: str = 'active', value: int = 1):
-        return self.set(self.__count_drop_frames, value, extra_labels={'action': action})
-    
+        return self.set(self.__count_process_frames, value)
+
+    def count_drop_frames(self, action: str = "active", value: int = 1):
+        return self.set(
+            self.__count_drop_frames, value, extra_labels={"action": action}
+        )
+
     def cost_process_frames(self, value: float):
         return self.set(self.__cost_process_frames, value)
-    
+
     def cost_pendding_frames(self, value: float):
         return self.set(self.__cost_pendding_frames, value)
-    
-    def set(self, metric_obj: MetricWrapperBase, value: Union[int, float], extra_labels: dict = None):
+
+    def set(
+        self,
+        metric_obj: MetricWrapperBase,
+        value: Union[int, float],
+        extra_labels: dict = None,
+    ):
         if not self.enable:
-            logger.debug(f'Metrics disabled!')
+            logger.debug(f"Metrics disabled!")
             return
         extra_labels = extra_labels or {}
         labels = {**self.default_labels, **extra_labels}
@@ -89,17 +95,23 @@ class CoralNodeMetrics:
             raise TypeError(f"Unsupported type: {type(metric_obj)}")
 
     def _count_process_frames(self) -> Counter:
-        return Counter('coral__pipeline__node__process_frames_count', '节点处理的数据帧', self.labels)
-    
+        return Counter(
+            "coral__pipeline__node__process_frames_count", "节点处理的数据帧", self.labels
+        )
+
     def _count_drop_frames(self) -> Counter:
-        labels = ['action', *self.labels]
-        return Counter('coral__pipeline__node__drop_frames', '节点主动｜被动丢弃的数据帧', labels)
-    
+        labels = ["action", *self.labels]
+        return Counter("coral__pipeline__node__drop_frames", "节点主动｜被动丢弃的数据帧", labels)
+
     def _cost_process_frames(self) -> Histogram:
-        return Histogram('coral__pipeline__node__process_frames_cost', '节点单次处理的耗时', self.labels)
-    
+        return Histogram(
+            "coral__pipeline__node__process_frames_cost", "节点单次处理的耗时", self.labels
+        )
+
     def _cost_pendding_frames(self) -> Histogram:
-        return Histogram('coral__pipeline__node__pendding_frames_cost', '节点数据帧从发送到接收的时间', self.labels)
+        return Histogram(
+            "coral__pipeline__node__pendding_frames_cost", "节点数据帧从发送到接收的时间", self.labels
+        )
 
 
 class CoralWrapyfiMetricsSender(MiddlewareCommunicator):
@@ -134,17 +146,17 @@ class CoralWrapyfiMetricsSender(MiddlewareCommunicator):
             pubsub_monitor_listener_spawn="thread",
             **meta.params,
         )(self._sender)
-        self.activate_communication(self._sender, mode='publish')
+        self.activate_communication(self._sender, mode="publish")
 
     def _sender(self, *args, **kwargs):
         try:
             data = self.sender(*args, **kwargs)
-            pub_data = {'metrics': data.decode()}
+            pub_data = {"metrics": data.decode()}
         except Exception as e:
-            logger.info(f'topic {self.meta.topic} sender error: ', e)
+            logger.info(f"topic {self.meta.topic} sender error: ", e)
 
         logger.debug(f"prometheus data: {pub_data}")
-        return pub_data,
-    
+        return (pub_data,)
+
     def sender(self, *args, **kwargs):
         return generate_latest()

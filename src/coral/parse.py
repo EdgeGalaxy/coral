@@ -1,9 +1,7 @@
 from .parser import XmlParser, JsonParser
 
 
-
 class CoralParser:
-
     @classmethod
     def parse(cls, config_path: str) -> type[XmlParser] | type[JsonParser]:
         """
