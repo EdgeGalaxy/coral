@@ -1,16 +1,24 @@
 {
     "node_id": "node1",
     "meta": {
-        "mode": "pubsub",
         "sender": { 
-                "raw_type": "RawImage",
-                "mware": "zeromq",
                 "topic": "/topic1",
                 "params": {
                     "socket_sub_port": 5759,
                     "socket_pub_port": 5758
                 }
             }
+    },
+    "generic": {
+        "enable_metrics": true,
+        "metrics_sender": {
+            "raw_type": "Metrics",
+            "topic": "/node1_metrics",
+            "params": {
+                "socket_sub_port": 5859,
+                "socket_pub_port": 5858
+            }
+        }
     },
     "params": {
         "model": "model_path",

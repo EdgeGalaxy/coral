@@ -3,6 +3,7 @@
     "meta": {
         "receivers": [
             {
+                "node_id": "node1",
                 "topic": "/topic1",
                 "params": {
                     "socket_sub_port": 5759,
@@ -17,6 +18,17 @@
                     "socket_pub_port": 5858
                 }
             }
+    },
+    "generic": {
+        "enable_metrics": true,
+        "metrics_sender": {
+            "raw_type": "Metrics",
+            "topic": "/node2_metrics",
+            "params": {
+                "socket_sub_port": 5959,
+                "socket_pub_port": 5958
+            }
+        }
     },
     "params": {
         "model": "model_path",

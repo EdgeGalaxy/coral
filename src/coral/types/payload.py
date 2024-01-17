@@ -53,9 +53,14 @@ class RawPayload(CoralBaseModel):
     node_id: str
     raw_id: str = str(uuid.uuid4())
     raw: Union[np.ndarray, str] = None
+    nodes_cost: float = 0
     timestamp: float = time.perf_counter()
     objects: List[ObjectsModel] = []
     metas: List[ReturnPayload] = []
+
+
+class MetricsPayload(CoralBaseModel):
+    pass
 
 
 class BatchRawPayload(BaseModel):
@@ -68,10 +73,10 @@ class DataTypeManager:
 
     @classmethod
     def register(cls: 'DataTypeManager', payload_type: str, data_type: str = "NativeObject"):
-        def decorator(cls_: RawPayload):
+        def decorator(cls_: Union[RawPayload, MetricsPayload]):
             if data_type not in cls.mapping_types:
                 raise ValueError(f"Invalid mapping type: {data_type}, should include in {cls.mapping_types}")
-            if not issubclass(cls_, RawPayload):
+            if not issubclass(cls_, RawPayload) and not issubclass(cls_, MetricsPayload):
                 raise TypeError(f"Invalid class model type: {cls_.__name__}, should be a subclass of {RawPayload.__name__}")
             cls.registry[payload_type] = (data_type, cls_)
             return cls_
@@ -142,6 +147,11 @@ class RawImagePayload(RawPayload):
         if v.dtype != np.uint8:
             raise ValueError('Image dtype must be uint8')
         return v
+
+
+@DTManager.register("Metrics")
+class MetricsPayload(MetricsPayload):
+    pass
 
 
 @DTManager.register("RawTest")

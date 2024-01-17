@@ -23,6 +23,7 @@ REPLY_MODE = ModeModel(sender='reply', receiver='request')
 
 
 class ReceiverModel(CoralBaseModel):
+    node_id: str = Field(frozen=True)
     raw_type: str = Field(frozen=True, default="RawImage") 
     mware: str = Field(frozen=True, default='zeromq') 
     cls_name: str = Field(frozen=True, default='NoReceiverUse') 
@@ -106,10 +107,19 @@ class ProcessModel(CoralBaseModel):
     enable_parallel: bool = Field(frozen=True, default=False)
 
 
+class GenericParamsModel(CoralBaseModel):
+    skip_frame: int = Field(frozen=True, default=0, description='每隔几帧处理一次')
+    enable_metrics: bool = Field(frozen=True, default=True, description='是否开启服务监控')
+    metrics_sender: SenderModel = Field(frozen=True, default=None, description='监控发送器')
+
+
 class ConfigModel(CoralBaseModel):
+    gateway_id: str = Field(frozen=True, default='default_gateway')
+    pipeline_id: str = Field(frozen=True, default='default_pipeline')
     node_id: str = Field(frozen=True)
     process: ProcessModel = Field(frozen=True, default=ProcessModel())
     meta: MetaModel = Field(frozen=True)
+    generic: GenericParamsModel = Field(frozen=True, default=GenericParamsModel())
     params: Dict = Field(frozen=True, default=None)
 
     @validator('params')

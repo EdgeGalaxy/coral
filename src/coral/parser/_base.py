@@ -4,7 +4,7 @@ from typing import Dict
 from loguru import logger
 from pydantic import create_model, Field
 
-from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel
+from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel, GenericParamsModel
 
 
 
@@ -32,12 +32,13 @@ class BaseParse:
 
         ConfigSchemaModel = create_model(
             'ConfigSchemaModel',
-            receiver_raw_type = (str, Field(frozen=True, default=_receiver_raw_type)),
-            sender_raw_type = (str, Field(frozen=True, default=_sender_raw_type)),
-            receiver_topic = (str, Field(frozen=True, default=_receiver_topic)),
-            sender_topic = (str, Field(frozen=True, default=_sender_topic)),
-            params_cls=(_params_cls, Field(frozen=True, default=None)), 
-            return_cls=(_return_cls, Field(frozen=True)), 
+            receiver_raw_type = (str, Field(frozen=True, default=_receiver_raw_type, description='接收的类型')),
+            sender_raw_type = (str, Field(frozen=True, default=_sender_raw_type, description='发送的类型')),
+            receiver_topic = (str, Field(frozen=True, default=_receiver_topic, description='接收的topic')),
+            sender_topic = (str, Field(frozen=True, default=_sender_topic, description='发送的topic')),
+            generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='通用参数')),
+            params_cls=(_params_cls, Field(frozen=True, default=None, description='节点具体参数')), 
+            return_cls=(_return_cls, Field(frozen=True, description='节点返回值')), 
             __base__=CoralBaseModel, 
         )
         return ConfigSchemaModel.model_json_schema()
@@ -57,10 +58,22 @@ class BaseParse:
     @property
     def data(self) -> ConfigModel:
         return self.__data
+    
+    @property
+    def gateway_id(self):
+        return self.data.gateway_id
+
+    @property
+    def pipeline_id(self):
+        return self.data.pipeline_id
 
     @property
     def node_id(self):
         return self.data.node_id
+    
+    @property
+    def generic_params(self):
+        return self.data.generic
     
     @property
     def process(self) -> int:

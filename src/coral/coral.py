@@ -1,3 +1,4 @@
+from functools import cached_property
 import uuid
 import time
 import queue
@@ -5,13 +6,14 @@ import multiprocessing
 from typing import Dict, List, Any
 from loguru import logger
 from threading import Thread
-from collections import deque
+from collections import defaultdict, deque
 
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
 
 from .constants import DEFAULT_NO_RECEVIER_MSG
 from .parse import CoralParser
 from .parser import BaseParse
+from .metrics import CoralNodeMetrics
 from .types import (
     MetaModel,
     ParamsModel,
@@ -43,6 +45,20 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times.append(self.run_time)
         # node info report
         self.config_schema = self.config.parse_json_schema()
+        # metrics
+        self.metrics = CoralNodeMetrics(
+            gateway_id=self.config.gateway_id,
+            pipeline_id=self.config.pipeline_id,
+            node_id=self.config.node_id,
+            enable=self.config.generic_params.enable_metrics,
+        )
+        self.metrics.register_sender(self.config.generic_params.metrics_sender)
+        # skip frame recorder
+        self.receiver_frames_count = defaultdict(int)
+    
+    @property
+    def skip_frame_count(self):
+        return self.config.generic_params.skip_frame
 
     @property
     def config(self) -> BaseParse:
@@ -63,6 +79,20 @@ class CoralNode(MiddlewareCommunicator):
     @property
     def mode(self) -> ModeModel:
         return self.meta._mode
+
+    @property
+    def receiver_fps(self):
+        duration = self.receiver_times[-1] - self.receiver_times[0]
+        if duration == 0:
+            return 0
+        return len(self.receiver_times) / duration
+
+    @property
+    def sender_fps(self):
+        duration = self.sender_times[-1] - self.sender_times[0]
+        if duration == 0:
+            return 0
+        return len(self.sender_times) / duration
 
     def __queue(self):
         """
@@ -157,6 +187,7 @@ class CoralNode(MiddlewareCommunicator):
                 proxy_broker_spawn="thread",
                 pubsub_monitor_listener_spawn="thread",
                 payload_cls=meta.payload_cls,
+                node_id=meta.node_id,
                 **meta.params,
             )(func)
             self.activate_communication(receiver, mode=self.mode.receiver)
@@ -178,6 +209,7 @@ class CoralNode(MiddlewareCommunicator):
             Any: The data returned by the sender method.
         """
         try:
+            st = time.perf_counter()
             payload: RawPayload = kwargs.pop("payload", {})
             context: Dict = kwargs.pop("context", {})
             sender_payload = self.sender(payload, context)
@@ -186,13 +218,17 @@ class CoralNode(MiddlewareCommunicator):
                 try:
                     sender_payload = self.meta.sender.return_cls(**sender_payload)
                 except Exception as e:
-                    logger.exception(f'not init by return type: {self.meta.sender.return_cls.__name__}, error is {e}')
+                    logger.exception(
+                        f"not init by return type: {self.meta.sender.return_cls.__name__}, error is {e}"
+                    )
                     raise e
 
             # 首节点，类型必须为FirstPayload, 需要包含raw字段
-            if payload.raw is None: 
+            if payload.raw is None:
                 if not isinstance(sender_payload, FirstPayload):
-                    raise TypeError(f"sender payload type error: {type(sender_payload)}, first payload is subclass of [ {FirstPayload.__name__} ]")
+                    raise TypeError(
+                        f"sender payload type error: {type(sender_payload)}, first payload is subclass of [ {FirstPayload.__name__} ]"
+                    )
                 # 记录原始值
                 payload.raw = sender_payload.raw
             else:
@@ -200,21 +236,34 @@ class CoralNode(MiddlewareCommunicator):
                 if isinstance(sender_payload, list):
                     raise TypeError(f"not support list return, {sender_payload}!!")
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
-                    payload.metas.append({f'node.{self.config.node_id}': sender_payload})
+                    payload.metas.append(
+                        {f"node.{self.config.node_id}": sender_payload}
+                    )
                 else:
-                    raise TypeError(f"sender payload type error: {type(sender_payload)}, should is [ {self.meta.sender.return_cls.__name__} !!!!")
+                    raise TypeError(
+                        f"sender payload type error: {type(sender_payload)}, should is [ {self.meta.sender.return_cls.__name__} !!!!"
+                    )
 
-                payload.node_id = '$'.join([payload.node_id, self.config.node_id])
-                
+                payload.node_id = "$".join([payload.node_id, self.config.node_id])
+
+            # node整体耗时：从接收到处理
+            payload.nodes_cost = time.perf_counter() - payload.timestamp
+            # 更新发送时间
+            payload.timestamp = time.perf_counter()
+            # 记录节点处理耗时&数量
+            cost_time = time.perf_counter() - st
+            self.metrics.cost_process_frames(cost_time)
+            self.metrics.count_process_frames()
+
             # 更新发送节点的node_id
             # 记录发送的时间
             crt_time = time.time()
             self.sender_times.append(crt_time)
             logger.debug(f"{self.__class__.__name__} send data")
             data = payload.model_dump()
-            return data,
+            return (data,)
         except Exception as e:
-            logger.exception(f'__sender func error: {e}')
+            logger.exception(f"__sender func error: {e}")
 
     def __init(self):
         """
@@ -264,7 +313,7 @@ class CoralNode(MiddlewareCommunicator):
             if payload is None:
                 continue
             self.__sender(self, payload=payload, context=context)
-    
+
     def __on_payload_callback(self, payload: RawPayload, context: Dict = {}):
         """
         Callback function for handling payloads.
@@ -276,9 +325,14 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
-        # 记录接收数据的时间
-        crt_time = time.time()
-        self.receiver_times.append(crt_time)
+        is_pass = self._record_and_just_is_pass_frame(
+            recv_node_id=payload.node_id
+        )
+        if is_pass:
+            logger.debug(f"{payload.node_id} frame is passed!")
+            return
+
+        # 处理对应的帧
         if self.process.enable_parallel:
             if not self._queue.full():
                 self._queue.put_nowait(payload)
@@ -286,13 +340,16 @@ class CoralNode(MiddlewareCommunicator):
                 logger.warning(
                     f"{self.__class__.__name__} queue is full! skip this topic: [ {payload} ] payload!"
                 )
+                self.metrics.count_drop_frames(action="full")
         else:
             self.__sender(self, payload=payload, context=context)
-        # display fps 
+        # display fps
         self.logger_fps()
-    
+
     def logger_fps(self):
-        logger.info(f"{self.__class__.__name__} receiver fps: {self.receiver_fps} sender fps: {self.sender_fps}")
+        logger.info(
+            f"{self.__class__.__name__} receiver fps: {self.receiver_fps} sender fps: {self.sender_fps}"
+        )
 
     def __on_receiver_callback(self, receiver) -> RawPayload:
         """
@@ -310,13 +367,18 @@ class CoralNode(MiddlewareCommunicator):
         payload = _payload[0]
 
         if payload == DEFAULT_NO_RECEVIER_MSG:
-            return RawPayload(node_id=self.config.node_id)
+            raw_payload = RawPayload(node_id=self.config.node_id)
         else:
-            receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(receiver.__qualname__)
+            receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(
+                receiver.__qualname__
+            )
             communicator = receiver_wrapper_func["communicator"][0]
             receiver_func_kwargs = communicator["return_func_kwargs"]
-            payload_cls: RawPayload = receiver_func_kwargs['payload_cls']
-            return payload_cls(**payload)
+            payload_cls: RawPayload = receiver_func_kwargs["payload_cls"]
+            raw_payload = payload_cls(**payload)
+        # 从上一个节点发送到该节点接受耗时
+        self.metrics.cost_pendding_frames(time.perf_counter() - raw_payload.timestamp)
+        return raw_payload
 
     def __run_background_senders(self):
         """
@@ -335,20 +397,36 @@ class CoralNode(MiddlewareCommunicator):
             self._process_cls(
                 target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
             ).start()
-        
-    @property
-    def receiver_fps(self):
-        duration = self.receiver_times[-1] - self.receiver_times[0]
-        if duration == 0:
-            return 0
-        return len(self.receiver_times) / duration
     
-    @property
-    def sender_fps(self):
-        duration = self.sender_times[-1] - self.sender_times[0]
-        if duration == 0:
-            return 0
-        return len(self.sender_times) / duration
+    def _record_and_just_is_pass_frame(self, recv_node_id):
+        """
+        A function that records whether a frame is skipped or not and updates the receiver frame count.
+
+        Parameters:
+            recv_node_id (int): The ID of the receiver node.
+
+        Returns:
+            bool: True if the frame is skipped, False otherwise.
+        """
+        is_pass = False
+        # 记录此帧是否被skip
+        if self.skip_frame_count != 0:
+            recv_frame_count = self.receiver_frames_count[recv_node_id]
+            # 不等于被skip的frame count，则pass掉对应的帧
+            if recv_frame_count != self.skip_frame_count:
+                is_pass = True
+                self.receiver_frames_count[recv_node_id] = recv_frame_count + 1
+                self.metrics.count_drop_frames(action="pass")
+            else:
+                # 重置重新计算
+                self.receiver_frames_count[recv_node_id] = 0
+
+        # 记录真实处理的队列fps
+        if not is_pass:
+            crt_time = time.time()
+            self.receiver_times.append(crt_time)
+        return is_pass
+
 
     def on_solo_receivers(self):
         """
