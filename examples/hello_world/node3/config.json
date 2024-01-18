@@ -2,22 +2,14 @@
     "node_id": "node3",
     "meta": {
         "sender": { 
-                "topic": "/topic3",
-                "params": {
-                    "socket_sub_port": 5760,
-                    "socket_pub_port": 5761
-                }
-            }
+            "node_id": "node3"
+        }
     },
     "generic": {
         "enable_metrics": true,
         "metrics_sender": {
-            "raw_type": "Metrics",
-            "topic": "/node3_metrics",
-            "params": {
-                "socket_sub_port": 5860,
-                "socket_pub_port": 5861
-            }
+            "node_id": "node3_metrics",
+            "raw_type": "Metrics"
         }
     },
     "params": {

@@ -1,44 +1,23 @@
 {
     "node_id": "node2",
-    "process": {"enable_parallel": true},
     "meta": {
         "receivers": [
             {
-                "node_id": "node1",
-                "topic": "/topic1",
-                "blocking": false,
-                "params": {
-                    "socket_sub_port": 5759,
-                    "socket_pub_port": 5758
-                }
+                "node_id": "node1"
             },
             { 
-                "node_id": "node3",
-                "topic": "/topic3",
-                "blocking": false,
-                "params": {
-                    "socket_sub_port": 5760,
-                    "socket_pub_port": 5761
-                }
+                "node_id": "node3"
             }
         ],
         "sender": {
-                "topic": "/topic2",
-                "params": {
-                    "socket_sub_port": 5859,
-                    "socket_pub_port": 5858
-                }
+                "node_id": "node2"
             }
     },
     "generic": {
         "enable_metrics": true,
         "metrics_sender": {
-            "raw_type": "Metrics",
-            "topic": "/node2_metrics",
-            "params": {
-                "socket_sub_port": 5959,
-                "socket_pub_port": 5958
-            }
+            "node_id": "node2_metrics",
+            "raw_type": "Metrics"
         }
     },
     "params": {

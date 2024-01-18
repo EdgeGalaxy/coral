@@ -1,6 +1,13 @@
+import os
+import json
+import socket
+from pathlib import Path
+from contextlib import closing
 from functools import cached_property
 from typing import List, Dict, Union
-from typing_extensions import Unpack
+
+from loguru import logger
+from filelock import Timeout, FileLock
 
 from pydantic import BaseModel, Field, computed_field, validator
 
@@ -12,6 +19,13 @@ from .payload import (
     RTManager,
     CoralBaseModel,
 )
+
+
+DEFAULT_GLOBAL_DATA_DIR = os.path.join(os.environ['HOME'], '.coral')
+os.makedirs(DEFAULT_GLOBAL_DATA_DIR, exist_ok=True)
+ALL_NODES_GLOBAL_DATA_PATH = os.environ.get("CORAL_ALL_NODES_GLOBAL_DATA_PATH", os.path.join(DEFAULT_GLOBAL_DATA_DIR, 'global_nodes_data.json'))
+Path(ALL_NODES_GLOBAL_DATA_PATH).touch(exist_ok=True)
+lock = FileLock(f"{ALL_NODES_GLOBAL_DATA_PATH}.lock")
 
 
 class ModeModel(BaseModel):
@@ -27,15 +41,53 @@ PUBSUM_MODE = ModeModel(sender="publish", receiver="listen")
 REPLY_MODE = ModeModel(sender="reply", receiver="request")
 
 
-class ReceiverModel(CoralBaseModel):
+class PubSubBaseModel(CoralBaseModel):
     node_id: str = Field(frozen=True)
     raw_type: str = Field(frozen=True, default="RawImage")
     mware: str = Field(frozen=True, default="zeromq")
     cls_name: str = Field(frozen=True, default="NoReceiverUse")
-    topic: str = Field(frozen=True)
+    topic: str = Field(default=None)
     carrier: str = Field(frozen=True, default="tcp")
-    blocking: bool = Field(frozen=True, default=True)
+    blocking: bool = Field(frozen=True, default=False)
+    socket_sub_port: int = Field(default=0)
+    socket_pub_port: int = Field(default=0)
     params: Dict[str, Union[str, int, bool, float]] = Field(frozen=True, default={})
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._get_or_setdefault_attr()
+
+    def _get_or_setdefault_attr(self):
+        def pick_unuse_port():
+            with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+                s.bind(('', 0))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                return s.getsockname()[1]
+
+        with lock:
+            with open(ALL_NODES_GLOBAL_DATA_PATH, 'r+') as f:
+                try:
+                    data = json.load(f)
+                except json.decoder.JSONDecodeError as e:
+                    logger.warning(f"can not load data from {ALL_NODES_GLOBAL_DATA_PATH} {e}")
+                    data = {}
+                
+                nd: dict = data.get(self.node_id, {})
+                self.topic = nd.get('topic', f"/{self.node_id}_{self.raw_type}_{self.mware}")
+                self.socket_sub_port = nd.get('socket_sub_port', pick_unuse_port())
+                self.socket_pub_port = nd.get('socket_pub_port', pick_unuse_port())
+                
+                data[self.node_id] = {
+                    'topic': self.topic,
+                    'socket_sub_port': self.socket_sub_port,
+                    'socket_pub_port': self.socket_pub_port
+                }
+                
+                f.seek(0)
+                json.dump(data, f)
+
+
+class ReceiverModel(PubSubBaseModel):
 
     @validator("raw_type")
     def validate_payload_type(cls, v):
@@ -56,14 +108,7 @@ class ReceiverModel(CoralBaseModel):
         return DTManager.registry[self.raw_type][1]
 
 
-class SenderModel(CoralBaseModel):
-    raw_type: str = Field(frozen=True, default="RawImage")
-    mware: str = Field(frozen=True, default="zeromq")
-    cls_name: str = Field(frozen=True, default="NoSenderUse")
-    topic: str = Field(frozen=True)
-    carrier: str = Field(frozen=True, default="tcp")
-    blocking: bool = Field(frozen=True, default=False)
-    params: Dict[str, Union[str, int, bool, float]] = Field(frozen=True)
+class SenderModel(PubSubBaseModel):
 
     @validator("raw_type")
     def validate_payload_type(cls, v):

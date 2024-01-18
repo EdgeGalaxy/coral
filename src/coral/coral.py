@@ -1,3 +1,4 @@
+import os
 import time
 import queue
 import multiprocessing
@@ -24,9 +25,12 @@ from .types import (
 )
 
 
+# 节点变量
+CORAL_NODE_CONFIG_PATH = os.environ.get("CORAL_NODE_CONFIG_PATH")
+
+
 class CoralNode(MiddlewareCommunicator):
-    node_name = None
-    config_path = "config.xml"
+    config_path = 'config.json'
 
     def __init__(self):
         self.__config = CoralParser.parse(self.config_path)
@@ -56,6 +60,14 @@ class CoralNode(MiddlewareCommunicator):
         )
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
+    
+    @property
+    def config_path(self):
+        if CORAL_NODE_CONFIG_PATH:
+            logger.info(f'use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}')
+            return CORAL_NODE_CONFIG_PATH
+        logger.info(f'use default config path: {self.config_path}')
+        return self.config_path
 
     @property
     def skip_frame_count(self):
@@ -147,6 +159,8 @@ class CoralNode(MiddlewareCommunicator):
             meta.topic,
             carrier=meta.carrier,
             should_wait=meta.blocking,
+            socket_sub_port=meta.socket_sub_port,
+            socket_pub_port=meta.socket_pub_port,
             proxy_broker_spawn="thread",
             pubsub_monitor_listener_spawn="thread",
             **meta.params,
@@ -185,10 +199,12 @@ class CoralNode(MiddlewareCommunicator):
                 meta.topic,
                 carrier=meta.carrier,
                 should_wait=meta.blocking,
-                proxy_broker_spawn="thread",
-                pubsub_monitor_listener_spawn="thread",
                 payload_cls=meta.payload_cls,
                 node_id=meta.node_id,
+                socket_sub_port=meta.socket_sub_port,
+                socket_pub_port=meta.socket_pub_port,
+                proxy_broker_spawn="thread",
+                pubsub_monitor_listener_spawn="thread",
                 **meta.params,
             )(func)
             self.activate_communication(receiver, mode=self.mode.receiver)

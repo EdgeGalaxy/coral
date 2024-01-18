@@ -11,7 +11,7 @@ from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsMod
 class BaseParse:
     def __init__(self, data: dict):
         self.__data = self.__init_data(data)
-        logger.info(f"config data: {data}")
+        logger.info(f"config data: {self.data}")
     
     @classmethod
     def parse(cls, config_path: str) -> 'BaseParse':
