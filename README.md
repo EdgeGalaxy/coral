@@ -5,21 +5,17 @@
 - 支持多种分布式通信，提供统一的接口
     - ros
     - zeromq
-    - ...
-- 支持pub/sub模式 && reply/request模式
-- 支持多线程/多进程处理订阅的消息
+- 支持pub/sub模式模式
+- 支持多线程处理订阅的消息
 - 支持多种消息类型通信
     - RawImage
+    - Metrics
 - 支持自定义参数及指定类型
 - 支持一些处理选项
     - 每隔几帧处理一次
-- 通过XML语言定义节点信息，可通过XML还原节点
-    - XML解析: xml2json
-    - XML校验
-    - XML还原: json2xml
+- 通过XML/Json语言定义节点信息
 - 支持订阅多个topic的消息
     - 支持并行处理多个Topic的消息
-    - 支持等待某一时间段内多个topic消息同时到达后处理(待定)
 - 支持统计节点信息和资源占用信息
 
 
@@ -39,59 +35,75 @@
 ### 继承开发
 
 ```python
-from coral import CoralNode
+import os
+import sys
+import numpy as np
+from typing import Union
+
+from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
 
 
-class CamreaNode(CoralNode):
-    config_path = 'config.xml'
+# 定义返回参数的数据类型
+@RTManager.register()
+class Node1ReturnPayload(FirstPayload):
+    raw: Union[np.ndarray, str] 
 
-    def init(self, context):
-        context.model = ''
 
-    def send(self, payload, context, *args, **kwargs):
-        frame = payload.frame
-        model = context.model
-        data = model.predict(frame)
-        return data
+# 定义入参的数据类型
+@PTManager.register()
+class Node1ParamsModel(ParamsModel):
+    model: str
+    run: dict
+
+
+class Node1(CoralNode):
+
+    # 指定配置文件路径
+    config_path = 'config.json'
+
+    def init(self, context: dict):
+        "节点初始化相关逻辑，context会传递到sender方法中"
+        blue_image = np.zeros((640, 640, 3), np.uint8)
+        blue_image[:] = (255, 0, 0)  # BGR格式
+        context.update({'init': 'node1', 'raw': blue_image})
+
+
+    def sender(self, payload: dict, context: dict) -> Node1ReturnPayload:
+        "节点发送逻辑，return的内容会附加到RawImage消息类型中发送"
+        return {'raw': context['raw']}
 ```
 
 
-```xml
-<node>
-    <name disable></name>
-    <desc disable></desc>
-    <mode edited></mode>
-    <send>
-        <data_type select></data_type>
-        <mware select></mware>
-        <cls_name></cls_name>
-        <topic></topic>
-        <carries></carries>
-        <blocking></blocking>
-        <socket_sub_port></socket_sub_port>
-        <socket_pub_port></socket_pub_port>
-    </send>
-    <recv>
-        <data_type select></data_type>
-        <mware select></mware>
-        <cls_name></cls_name>
-        <topic></topic>
-        <carries></carries>
-        <blocking></blocking>
-        <socket_sub_port></socket_sub_port>
-        <socket_pub_port></socket_pub_port>
-    </recv>
-    <init>
-        <model>
-            <type select></type>
-            <default></default>
-        </model>
-    </init>
-    <params>
-        <width edited></width>
-        <cavans></cavans>
-    </params>
-</node>
+```json
+{
+    "node_id": "node1",
+    "meta": {
+        "sender": { 
+                "topic": "/topic1",
+                "params": {
+                    "socket_sub_port": 5759,
+                    "socket_pub_port": 5758
+                }
+            }
+    },
+    "generic": {
+        "enable_metrics": true,
+        "metrics_sender": {
+            "raw_type": "Metrics",
+            "topic": "/node1_metrics",
+            "params": {
+                "socket_sub_port": 5859,
+                "socket_pub_port": 5858
+            }
+        }
+    },
+    "params": {
+        "model": "model_path",
+        "run": {
+            "width": 100
+        }
+    }
+}
 ```
 
 
