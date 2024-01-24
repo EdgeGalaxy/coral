@@ -252,6 +252,7 @@ class CoralNode(MiddlewareCommunicator):
                 # TODO: 判断是不是objectsModel类型
                 if isinstance(sender_payload, list):
                     raise TypeError(f"not support list return, {sender_payload}!!")
+                # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
                     payload.metas.append(
                         {f"node.{self.config.node_id}": sender_payload}

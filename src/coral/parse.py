@@ -1,9 +1,11 @@
+from typing import Union
+
 from .parser import XmlParser, JsonParser
 
 
 class CoralParser:
     @classmethod
-    def parse(cls, config_path: str) -> type[XmlParser] | type[JsonParser]:
+    def parse(cls, config_path: str) -> Union[XmlParser, JsonParser]:
         """
         Parses the given `config_path` and returns an instance of either `XmlParser` or `JsonParser` based on the file type.
 
