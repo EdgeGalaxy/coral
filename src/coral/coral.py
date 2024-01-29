@@ -22,6 +22,7 @@ from .types import (
     ProcessModel,
     RawPayload,
     FirstPayload,
+    ObjectsModel,
 )
 
 
@@ -249,9 +250,9 @@ class CoralNode(MiddlewareCommunicator):
                 # 记录原始值
                 payload.raw = sender_payload.raw
             else:
-                # TODO: 判断是不是objectsModel类型
-                if isinstance(sender_payload, list):
-                    raise TypeError(f"not support list return, {sender_payload}!!")
+                # ObjectsModel类型
+                if isinstance(sender_payload, ObjectsModel):
+                    payload.objects = sender_payload
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
                     payload.metas.append(

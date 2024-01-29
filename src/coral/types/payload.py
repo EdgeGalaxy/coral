@@ -21,20 +21,13 @@ class Rect(BaseModel):
     height: int
 
 
-class Attribute(BaseModel):
-    id: int
-    label: str
-    probability: float
-    class_id: int
-
-
 class ObjectsModel(BaseModel):
-    id: int
-    label: str
-    class_id: int
-    probability: float
-    rect: Rect = []
-    attributes: List[Attribute] = []
+    id: int = None
+    labels: List[str]
+    class_ids: List[int]
+    probs: List[float]
+    rect: List[Rect] = []
+    objects: 'ObjectsModel' = []
 
 
 class ReturnPayload(CoralBaseModel):
@@ -55,7 +48,7 @@ class RawPayload(CoralBaseModel):
     raw: Union[np.ndarray, str] = None
     nodes_cost: float = 0
     timestamp: float = time.perf_counter()
-    objects: List[ObjectsModel] = []
+    objects: ObjectsModel = {}
     metas: List[ReturnPayload] = []
 
 
@@ -178,17 +171,3 @@ class RawTestPayload(RawPayload):
 # class RawBatchImagePayload(BatchRawPayload):
 #     pass
 
-
-@DTManager.register("")
-class DetectPayload(RawPayload):
-    pass
-
-
-@DTManager.register("")
-class ClassifyPayload(RawPayload):
-    pass
-
-
-@DTManager.register("")
-class RecognizePayload(RawPayload):
-    pass
