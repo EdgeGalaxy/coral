@@ -231,6 +231,9 @@ class CoralNode(MiddlewareCommunicator):
             payload: RawPayload = kwargs.pop("payload", {})
             context: Dict = kwargs.pop("context", {})
             sender_payload = self.sender(payload, context)
+            # 不存在sender的情况，直接返回
+            if self.meta.sender is None:
+                return sender_payload
             # 尝试根据返回的dict初始化为return_cls的类型
             if isinstance(sender_payload, dict):
                 try:
@@ -255,9 +258,12 @@ class CoralNode(MiddlewareCommunicator):
                     payload.objects = sender_payload
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
-                    payload.metas.append(
-                        {f"node.{self.config.node_id}": sender_payload}
-                    )
+                    _node_id = f'node.{self.config.node_id}'
+                    if _node_id in payload.metas:
+                        raise ValueError(
+                            f"node_id: {self.config.node_id} already exist in payload.metas"
+                        )
+                    payload.metas.update({_node_id: sender_payload})
                 else:
                     raise TypeError(
                         f"sender payload type error: {type(sender_payload)}, should is [ {self.meta.sender.return_cls.__name__} !!!!"

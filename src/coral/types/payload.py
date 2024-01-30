@@ -1,7 +1,7 @@
 import uuid
 import time
 
-from typing import List, Union
+from typing import List, Union, Dict
 from pydantic import BaseModel
 
 import numpy as np
@@ -49,7 +49,7 @@ class RawPayload(CoralBaseModel):
     nodes_cost: float = 0
     timestamp: float = time.perf_counter()
     objects: ObjectsPayload = {}
-    metas: List[ReturnPayload] = []
+    metas: Dict[str, ReturnPayload] = []
 
 
 class MetricsPayload(CoralBaseModel):
