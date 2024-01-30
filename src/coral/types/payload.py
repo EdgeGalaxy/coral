@@ -132,7 +132,7 @@ class ReturnManager:
     def default_type(cls):
         if cls.registry:
             return list(cls.registry.keys())[0]
-        raise None
+        return None
 
 
 DTManager = DataTypeManager
@@ -158,7 +158,7 @@ class RawImagePayload(RawPayload):
 
 
 @DTManager.register("Metrics")
-class MetricsPayload(MetricsPayload):
+class RawMetricsPayload(MetricsPayload):
     pass
 
 

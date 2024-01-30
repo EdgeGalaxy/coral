@@ -1,8 +1,11 @@
 
+from types import NoneType
 from typing import Dict
 
 from loguru import logger
 from pydantic import create_model, Field
+
+from coral.types.payload import ReturnPayload
 
 from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel, GenericParamsModel
 
@@ -23,8 +26,8 @@ class BaseParse:
 
         :return: The JSON schema for the ConfigSchemaModel.
         """
-        _params_cls = self.data._params_cls
-        _return_cls = self.meta.sender.return_cls
+        _params_cls = self.data._params_cls if self.data._params_cls else ParamsModel
+        _return_cls = self.meta.sender.return_cls if self.meta.sender else ReturnPayload
         _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else None
         _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else None
         _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else None
@@ -38,7 +41,7 @@ class BaseParse:
             sender_topic = (str, Field(frozen=True, default=_sender_topic, description='发送的topic')),
             generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='通用参数')),
             params_cls=(_params_cls, Field(frozen=True, default=None, description='节点具体参数')), 
-            return_cls=(_return_cls, Field(frozen=True, description='节点返回值')), 
+            return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
             __base__=CoralBaseModel, 
         )
         return ConfigSchemaModel.model_json_schema()

@@ -4,9 +4,6 @@
         "receivers": [
             {
                 "node_id": "node1"
-            },
-            { 
-                "node_id": "node3"
             }
         ],
         "sender": {

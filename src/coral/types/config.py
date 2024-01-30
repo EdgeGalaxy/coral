@@ -116,7 +116,7 @@ class SenderModel(PubSubBaseModel):
             raise ValueError(
                 f"Invalid payload type: {v}, should in {list(DTManager.registry.keys())}"
             )
-        if RTManager.default_type() is None:
+        if RTManager.default_type() is None and v != "Metrics":
             raise ValueError(
                 f"Not found ReturnPayload decorator by @RTManager.registry"
             )
@@ -139,6 +139,8 @@ class SenderModel(PubSubBaseModel):
     @computed_field
     @cached_property
     def return_cls(self) -> ReturnPayload:
+        if RTManager.default_type() is None:
+            return ReturnPayload
         return RTManager.registry[RTManager.default_type()]
 
 

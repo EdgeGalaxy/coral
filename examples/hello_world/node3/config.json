@@ -1,9 +1,9 @@
 {
     "node_id": "node3",
     "meta": {
-        "sender": { 
-            "node_id": "node3"
-        }
+        "receivers": [{
+            "node_id": "node2"
+        }]
     },
     "generic": {
         "enable_metrics": true,

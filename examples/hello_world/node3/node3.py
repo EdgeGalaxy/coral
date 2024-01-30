@@ -9,11 +9,6 @@ sys.path.append(os.path.abspath('../../../src/coral'))
 from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, ConfigModel
 
 
-@RTManager.register()
-class Node3ReturnPayload(FirstPayload):
-    raw: Union[np.ndarray, str] 
-
-
 @PTManager.register()
 class Node3ParamsModel(ParamsModel):
     model: str
