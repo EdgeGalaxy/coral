@@ -22,7 +22,7 @@ from .types import (
     ProcessModel,
     RawPayload,
     FirstPayload,
-    ObjectsModel,
+    ObjectsPayload,
 )
 
 
@@ -251,7 +251,7 @@ class CoralNode(MiddlewareCommunicator):
                 payload.raw = sender_payload.raw
             else:
                 # ObjectsModel类型
-                if isinstance(sender_payload, ObjectsModel):
+                if isinstance(sender_payload, ObjectsPayload):
                     payload.objects = sender_payload
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):

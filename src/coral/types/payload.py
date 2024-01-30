@@ -14,20 +14,20 @@ class CoralBaseModel(BaseModel):
         arbitrary_types_allowed = True
 
 
-class Rect(BaseModel):
+class Box(BaseModel):
     top: int
     left: int
     width: int
     height: int
 
 
-class ObjectsModel(BaseModel):
+class ObjectsPayload(BaseModel):
     id: int = None
     labels: List[str]
     class_ids: List[int]
     probs: List[float]
-    rect: List[Rect] = []
-    objects: 'ObjectsModel' = []
+    boxes: List[Box] = []
+    objects: 'ObjectsPayload' = []
 
 
 class ReturnPayload(CoralBaseModel):
@@ -48,7 +48,7 @@ class RawPayload(CoralBaseModel):
     raw: Union[np.ndarray, str] = None
     nodes_cost: float = 0
     timestamp: float = time.perf_counter()
-    objects: ObjectsModel = {}
+    objects: ObjectsPayload = {}
     metas: List[ReturnPayload] = []
 
 
