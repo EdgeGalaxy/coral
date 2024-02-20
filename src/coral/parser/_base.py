@@ -1,6 +1,4 @@
-
-from types import NoneType
-from typing import Dict
+import json
 
 from loguru import logger
 from pydantic import create_model, Field
@@ -44,7 +42,7 @@ class BaseParse:
             return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
             __base__=CoralBaseModel, 
         )
-        return ConfigSchemaModel.model_json_schema()
+        return json.dumps(ConfigSchemaModel.model_json_schema())
     
     def __init_data(self, data) -> ConfigModel:
         """

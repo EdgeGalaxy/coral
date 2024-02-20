@@ -1,11 +1,11 @@
 from typing import Union
 
-from .parser import XmlParser, JsonParser
+from .parser import XmlParser, JsonParser, Base64Parser
 
 
 class CoralParser:
     @classmethod
-    def parse(cls, config_path: str) -> Union[XmlParser, JsonParser]:
+    def parse(cls, config_path: str, file_type: str) -> Union[XmlParser, JsonParser]:
         """
         Parses the given `config_path` and returns an instance of either `XmlParser` or `JsonParser` based on the file type.
 
@@ -18,9 +18,11 @@ class CoralParser:
         Raises:
             ValueError: If the file type is unsupported.
         """
-        if config_path.endswith(".xml"):
+        if file_type == "xml":
             return XmlParser.parse(config_path)
-        elif config_path.endswith(".json"):
+        elif file_type == "json":
             return JsonParser.parse(config_path)
+        elif file_type == "base64":
+            return Base64Parser.parse(config_path)
         else:
             raise ValueError("Unsupported file type")

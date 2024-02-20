@@ -23,7 +23,7 @@ class Node2ParamsModel(ParamsModel):
 
 class Node2(CoralNode):
 
-    config_path = 'config.json'
+    config_fp = 'config.json'
 
     def init(self, context: dict):
         print("Hello World")

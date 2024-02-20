@@ -22,7 +22,7 @@ class Node1ParamsModel(ParamsModel):
 
 class Node1(CoralNode):
 
-    config_path = 'config.json'
+    config_fp = 'config.json'
 
     def init(self, context: dict):
         blue_image = np.zeros((640, 640, 3), np.uint8)

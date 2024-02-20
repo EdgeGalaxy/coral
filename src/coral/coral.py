@@ -26,12 +26,14 @@ from .types import (
 )
 
 
-# 节点变量
+# 节点配置文件变量
 CORAL_NODE_CONFIG_PATH = os.environ.get("CORAL_NODE_CONFIG_PATH")
+# 节点配置Bas64环境变量
+CORAL_NODE_BASE64_DATA = os.environ.get("CORAL_NODE_BASE64_DATA")
 
 
 class CoralNode(MiddlewareCommunicator):
-    config_path = 'config.json'
+    config_fp = 'config.json'
 
     def __init__(self):
         self.__config = CoralParser.parse(self.config_path)
@@ -48,6 +50,7 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times.append(self.run_time)
         # node info report
         self.config_schema = self.config.parse_json_schema()
+        logger.info(f"config schema: {self.config_schema}")
         # metrics
         self.metrics = CoralNodeMetrics(
             gateway_id=self.config.gateway_id,
@@ -56,7 +59,7 @@ class CoralNode(MiddlewareCommunicator):
             enable=self.config.generic_params.enable_metrics,
         )
         self.metrics.register_sender(
-            meta=self.config.generic_params.metrics_sender,
+            meta=SenderModel(node_id=f"{self.config.node_id}_Metrics", raw_type="Metrics"),
             interval=self.config.generic_params.metrics_interval,
         )
         # skip frame recorder
@@ -64,11 +67,14 @@ class CoralNode(MiddlewareCommunicator):
     
     @property
     def config_path(self):
+        if CORAL_NODE_BASE64_DATA:
+            logger.info(f'use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}')
+            return CORAL_NODE_BASE64_DATA, 'base64'
         if CORAL_NODE_CONFIG_PATH:
             logger.info(f'use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}')
-            return CORAL_NODE_CONFIG_PATH
+            return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split('.')[-1]
         logger.info(f'use default config path: {self.config_path}')
-        return self.config_path
+        return self.config_fp, self.config_fp.split('.')[-1]
 
     @property
     def skip_frame_count(self):

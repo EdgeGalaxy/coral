@@ -5,13 +5,6 @@
             "node_id": "node1"
         }
     },
-    "generic": {
-        "enable_metrics": true,
-        "metrics_sender": {
-            "node_id": "node1_metrics",
-            "raw_type": "Metrics"
-        }
-    },
     "params": {
         "model": "model_path",
         "run": {
