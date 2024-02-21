@@ -42,7 +42,30 @@ class BaseParse:
             return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
             __base__=CoralBaseModel, 
         )
-        return json.dumps(ConfigSchemaModel.model_json_schema())
+        data = ConfigSchemaModel.model_json_schema()
+
+        def rebuild_schema_data(schema):
+            return_data = {}
+            for k, v in schema['properties'].items():
+                ref = v.pop('allOf', None)
+                if not ref:
+                    return_data[k] = v
+                    continue
+                if len(ref) != 1:
+                    raise ValueError(f"一个字段仅支持一种类型参数, 当前字段: {k} 不符合要求")
+                _, defs, model_name = ref[0]['$ref'].split('/')
+                ref_model = schema[defs][model_name]
+                properties = {}
+                for k1, v1 in ref_model['properties'].items():
+                    if 'allOf' in v1:
+                        raise ValueError(f"不支持嵌套定义, 当前字段: {k} -> {k1} 不符合要求")
+                    properties[k1] = v1
+                return_data[k] = v
+                return_data[k].update({'properties': properties})
+            return json.dumps(return_data)
+
+        return rebuild_schema_data(data)
+
     
     def __init_data(self, data) -> ConfigModel:
         """

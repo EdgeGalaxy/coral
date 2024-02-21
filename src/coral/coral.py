@@ -36,7 +36,8 @@ class CoralNode(MiddlewareCommunicator):
     config_fp = 'config.json'
 
     def __init__(self):
-        self.__config = CoralParser.parse(*self.config_path)
+        config_path, file_type = self.get_config()
+        self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
         self._process_cls = self.__process_cls()
         self.receivers = self.__init_receivers(self.meta.receivers)
@@ -65,8 +66,7 @@ class CoralNode(MiddlewareCommunicator):
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
     
-    @property
-    def config_path(self):
+    def get_config(self):
         if CORAL_NODE_BASE64_DATA:
             logger.info(f'use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}')
             return CORAL_NODE_BASE64_DATA, 'base64'
