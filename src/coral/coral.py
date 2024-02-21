@@ -36,7 +36,7 @@ class CoralNode(MiddlewareCommunicator):
     config_fp = 'config.json'
 
     def __init__(self):
-        self.__config = CoralParser.parse(self.config_path)
+        self.__config = CoralParser.parse(*self.config_path)
         self._queue = self.__queue()
         self._process_cls = self.__process_cls()
         self.receivers = self.__init_receivers(self.meta.receivers)
