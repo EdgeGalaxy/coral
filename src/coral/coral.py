@@ -73,7 +73,7 @@ class CoralNode(MiddlewareCommunicator):
         if CORAL_NODE_CONFIG_PATH:
             logger.info(f'use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}')
             return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split('.')[-1]
-        logger.info(f'use default config path: {self.config_path}')
+        logger.info(f'use default config path: {self.config_fp}')
         return self.config_fp, self.config_fp.split('.')[-1]
 
     @property

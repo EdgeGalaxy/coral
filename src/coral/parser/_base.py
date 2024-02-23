@@ -60,13 +60,11 @@ class BaseParse:
                     if 'allOf' in v1:
                         raise ValueError(f"不支持嵌套定义, 当前字段: {k} -> {k1} 不符合要求")
                     properties[k1] = v1
-                return_data[k] = v
-                return_data[k].update({'properties': properties})
+                return_data[k] = properties
             return json.dumps(return_data)
 
         return rebuild_schema_data(data)
 
-    
     def __init_data(self, data) -> ConfigModel:
         """
         Initializes the data by creating a new instance of the ConfigModel class using the provided data.
