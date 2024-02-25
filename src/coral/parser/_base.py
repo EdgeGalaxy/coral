@@ -24,12 +24,12 @@ class BaseParse:
 
         :return: The JSON schema for the ConfigSchemaModel.
         """
-        _params_cls = self.data._params_cls if self.data._params_cls else ParamsModel
-        _return_cls = self.meta.sender.return_cls if self.meta.sender else ReturnPayload
-        _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else None
-        _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else None
-        _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else None
-        _sender_topic = self.meta.sender.topic if self.meta.sender else None
+        _params_cls = self.data._params_cls if self.data._params_cls else str
+        _return_cls = self.meta.sender.return_cls if self.meta.sender else str
+        _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else ''
+        _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else ''
+        _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else ''
+        _sender_topic = self.meta.sender.topic if self.meta.sender else ''
 
         ConfigSchemaModel = create_model(
             'ConfigSchemaModel',

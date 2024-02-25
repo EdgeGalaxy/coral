@@ -16,8 +16,8 @@ class Node1ReturnPayload(FirstPayload):
 
 @PTManager.register()
 class Node1ParamsModel(ParamsModel):
-    model: str
-    run: dict
+    model: str = 'model.pt'
+    width: int = 100
 
 
 class Node1(CoralNode):

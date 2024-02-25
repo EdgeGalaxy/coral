@@ -7,8 +7,6 @@
     },
     "params": {
         "model": "model_path",
-        "run": {
-            "width": 100
-        }
+        "width": 100
     }
 }
