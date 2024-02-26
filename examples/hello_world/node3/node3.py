@@ -12,7 +12,7 @@ from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, Co
 @PTManager.register()
 class Node3ParamsModel(ParamsModel):
     model: str
-    run: dict
+    run: int
 
 
 class Node3(CoralNode):

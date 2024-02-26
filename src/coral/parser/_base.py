@@ -24,8 +24,8 @@ class BaseParse:
 
         :return: The JSON schema for the ConfigSchemaModel.
         """
-        _params_cls = self.data._params_cls if self.data._params_cls else str
-        _return_cls = self.meta.sender.return_cls if self.meta.sender else str
+        _params_cls = self.data._params_cls if self.data._params_cls else None
+        _return_cls = self.meta.sender.return_cls if self.meta.sender else None
         _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else ''
         _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else ''
         _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else ''
@@ -38,10 +38,31 @@ class BaseParse:
             receiver_topic = (str, Field(frozen=True, default=_receiver_topic, description='接收的topic')),
             sender_topic = (str, Field(frozen=True, default=_sender_topic, description='发送的topic')),
             generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='通用参数')),
-            params_cls=(_params_cls, Field(frozen=True, default=None, description='节点具体参数')), 
-            return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
             __base__=CoralBaseModel, 
         )
+
+        if _params_cls is None and _return_cls is None:
+            ConfigSchemaModel = ConfigSchemaModel
+        elif _params_cls is None:
+            ConfigSchemaModel = create_model(
+                'ConfigSchemaModel',
+                return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
+                __base__=ConfigSchemaModel, 
+            )
+        elif _return_cls is None:
+            ConfigSchemaModel = create_model(
+                'ConfigSchemaModel',
+                params_cls=(_params_cls, Field(frozen=True, default=None, description='节点具体参数')), 
+                __base__=ConfigSchemaModel, 
+            )
+        else:
+            ConfigSchemaModel = create_model(
+                'ConfigSchemaModel',
+                params_cls=(_params_cls, Field(frozen=True, default=None, description='节点具体参数')), 
+                return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
+                __base__=ConfigSchemaModel, 
+            )
+
         data = ConfigSchemaModel.model_json_schema()
 
         def rebuild_schema_data(schema):
