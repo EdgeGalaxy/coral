@@ -2,15 +2,9 @@
     "node_id": "node3",
     "meta": {
         "receivers": [{
-            "node_id": "node2"
+            "node_id": "node1"
         }]
-    },
-    "generic": {
-        "enable_metrics": true,
-        "metrics_sender": {
-            "node_id": "node3_metrics",
-            "raw_type": "Metrics"
-        }
+        
     },
     "params": {
         "model": "model_path",

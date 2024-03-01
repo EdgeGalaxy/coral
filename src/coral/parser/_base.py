@@ -82,7 +82,7 @@ class BaseParse:
                         raise ValueError(f"不支持嵌套定义, 当前字段: {k} -> {k1} 不符合要求")
                     properties[k1] = v1
                 return_data[k] = properties
-            return json.dumps(return_data)
+            return return_data
 
         return rebuild_schema_data(data)
 

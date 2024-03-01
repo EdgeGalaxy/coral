@@ -1,6 +1,9 @@
 import os
 import time
+import json
+import uuid
 import queue
+import requests
 import multiprocessing
 from typing import Dict, List, Any
 from loguru import logger
@@ -51,7 +54,8 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times.append(self.run_time)
         # node info report
         self.config_schema = self.config.parse_json_schema()
-        logger.info(f"config schema: {self.config_schema}")
+        # publish node schema
+        self.publish_node_schema()
         # metrics
         self.metrics = CoralNodeMetrics(
             gateway_id=self.config.gateway_id,
@@ -75,7 +79,29 @@ class CoralNode(MiddlewareCommunicator):
             return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split('.')[-1]
         logger.info(f'use default config path: {self.config_fp}')
         return self.config_fp, self.config_fp.split('.')[-1]
+    
+    def publish_node_schema(self):
+        """
+        publish node schema info to remote
 
+        :raises Exception:
+        """
+        node_id = os.environ.get("CORAL_NODE_NAME")
+        node_version = os.environ.get("CORAL_NODE_VERSION")
+        node_image = os.environ.get("CORAL_NODE_DOCKER_IMAGE")
+        register_url = os.environ.get("CORAL_NODE_REGISTER_URL")
+        logger.info(f"publish node schema: {node_id} {node_version} {node_image} {register_url}!")
+        if all([node_id, node_version, node_image, register_url]):
+            url = register_url.format(node_id=node_id, version=node_version)
+            self.config_schema.update({'image': node_image})
+            r = requests.post(url, json=self.config_schema, timeout=5)
+            if r.ok:
+                logger.info(f"publish node schema success: {url} {json.dumps(self.config_schema)}!")
+            else:
+                raise Exception(f"publish node schema failed: {r.status_code} {r.content}!")
+        else:
+            logger.info(f"not need publish node schema: {json.dumps(self.config_schema)}!")
+        
     @property
     def skip_frame_count(self):
         return self.config.generic_params.skip_frame
@@ -239,6 +265,11 @@ class CoralNode(MiddlewareCommunicator):
             sender_payload = self.sender(payload, context)
             # 不存在sender的情况，直接返回
             if self.meta.sender is None:
+                # 记录节点处理耗时&数量
+                cost_time = time.perf_counter() - st
+                self.metrics.cost_process_frames(cost_time)
+                self.metrics.count_process_frames()
+                logger.info(f"{self.config.node_id} no sender, return immediately!")
                 return sender_payload
             # 尝试根据返回的dict初始化为return_cls的类型
             if isinstance(sender_payload, dict):
@@ -264,6 +295,7 @@ class CoralNode(MiddlewareCommunicator):
                     payload.objects = sender_payload
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
+                    payload.metas = payload.metas or {}
                     _node_id = f'node.{self.config.node_id}'
                     if _node_id in payload.metas:
                         raise ValueError(
@@ -278,7 +310,7 @@ class CoralNode(MiddlewareCommunicator):
                 payload.node_id = "$".join([payload.node_id, self.config.node_id])
 
             # node整体耗时：从接收到处理
-            payload.nodes_cost = time.perf_counter() - payload.timestamp
+            payload.nodes_cost += time.perf_counter() - payload.timestamp
             # 更新发送时间
             payload.timestamp = time.perf_counter()
             # 记录节点处理耗时&数量
@@ -290,8 +322,8 @@ class CoralNode(MiddlewareCommunicator):
             # 记录发送的时间
             crt_time = time.time()
             self.sender_times.append(crt_time)
-            logger.debug(f"{payload.node_id} send data")
             data = payload.model_dump()
+            logger.debug(f"{payload.node_id} send data cost time: {cost_time} ")
             return (data,)
         except Exception as e:
             logger.exception(f"__sender func error: {e}")

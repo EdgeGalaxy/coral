@@ -73,7 +73,7 @@ class PubSubBaseModel(CoralBaseModel):
                     data = {}
                 
                 nd: dict = data.get(self.node_id, {})
-                self.topic = nd.get('topic', f"/{self.node_id}_{self.raw_type}_{self.mware}")
+                self.topic = nd.get('topic', f"{self.node_id}_{self.raw_type}_{self.mware}")
                 self.socket_sub_port = nd.get('socket_sub_port', pick_unuse_port())
                 self.socket_pub_port = nd.get('socket_pub_port', pick_unuse_port())
                 

@@ -2,22 +2,16 @@ import os
 import sys
 from typing import List
 # 将src加入到系统路径
-sys.path.append(os.path.abspath('../../../src/coral'))
+sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, ReturnPayload, RTManager, PTManager
+from coral import CoralNode, ParamsModel, ObjectsPayload, RTManager, PTManager
 
-
-@RTManager.register()
-class Node2ReturnPayload(ReturnPayload):
-    boxes: List
-    classes_id: int
-    tag: str
 
 
 @PTManager.register()
 class Node2ParamsModel(ParamsModel):
     model: str
-    run: dict
+    run: int
 
 
 
@@ -30,8 +24,8 @@ class Node2(CoralNode):
         print(self.params)
         context.update({'init': 'node1'})
 
-    def sender(self, payload: dict, context: dict) -> Node2ReturnPayload:
-        return Node2ReturnPayload(boxes=[1, 2, 3, 4], classes_id=1, tag="hello world")
+    def sender(self, payload: dict, context: dict) -> ObjectsPayload:
+        return ObjectsPayload(boxes=[[1, 2, 3, 4]], class_ids=[1], labels=['person'], probs=[0.9])
 
 
 if __name__ == '__main__':

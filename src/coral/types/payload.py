@@ -1,8 +1,8 @@
 import uuid
 import time
 
-from typing import List, Union, Dict
-from pydantic import BaseModel
+from typing import List, Union, Dict, Optional, Tuple
+from pydantic import BaseModel, Field
 
 import numpy as np
 from wrapyfi.publishers import Publishers
@@ -14,24 +14,18 @@ class CoralBaseModel(BaseModel):
         arbitrary_types_allowed = True
 
 
-class Box(BaseModel):
-    top: int
-    left: int
-    width: int
-    height: int
-
 
 class ObjectsPayload(BaseModel):
     id: int = None
     labels: List[str]
     class_ids: List[int]
     probs: List[float]
-    boxes: List[Box] = []
+    boxes: List[Tuple] = []
     objects: 'ObjectsPayload' = []
 
 
 class ReturnPayload(CoralBaseModel):
-    timestamp: float = time.perf_counter()
+    timestamp: float = Field(default_factory=time.perf_counter)
 
 
 class FirstPayload(ReturnPayload):
@@ -44,12 +38,12 @@ class ParamsModel(CoralBaseModel):
 
 class RawPayload(CoralBaseModel):
     node_id: str
-    raw_id: str = str(uuid.uuid4())
+    raw_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     raw: Union[np.ndarray, str] = None
     nodes_cost: float = 0
-    timestamp: float = time.perf_counter()
-    objects: ObjectsPayload = {}
-    metas: Dict[str, ReturnPayload] = []
+    timestamp: float = Field(default_factory=time.perf_counter)
+    objects: Optional[ObjectsPayload] = None
+    metas: Optional[Dict[str, ReturnPayload]] = None
 
 
 class MetricsPayload(CoralBaseModel):

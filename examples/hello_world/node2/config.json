@@ -12,6 +12,6 @@
     },
     "params": {
         "model": "model_path",
-        "run": {}
+        "run": 100
     }
 }

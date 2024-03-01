@@ -1,10 +1,10 @@
-import cv2
 import os
 import sys
+import time
 import numpy as np
 from typing import Union
 # 将src加入到系统路径
-sys.path.append(os.path.abspath('../../../src/coral'))
+sys.path.append(os.path.abspath('../../../src'))
 
 from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, ConfigModel
 
@@ -31,6 +31,7 @@ class Node1(CoralNode):
 
 
     def sender(self, payload: dict, context: dict):
+        time.sleep(0.01)
         return {'raw': context['raw']}
 
 
