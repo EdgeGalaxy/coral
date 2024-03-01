@@ -174,7 +174,6 @@ class GenericParamsModel(CoralBaseModel):
 
 
 class ConfigModel(CoralBaseModel):
-    gateway_id: str = Field(frozen=True, default="default_gateway")
     pipeline_id: str = Field(frozen=True, default="default_pipeline")
     node_id: str = Field(frozen=True)
     process: ProcessModel = Field(frozen=True, default=ProcessModel())

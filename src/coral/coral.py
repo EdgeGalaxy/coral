@@ -58,7 +58,6 @@ class CoralNode(MiddlewareCommunicator):
         self.publish_node_schema()
         # metrics
         self.metrics = CoralNodeMetrics(
-            gateway_id=self.config.gateway_id,
             pipeline_id=self.config.pipeline_id,
             node_id=self.config.node_id,
             enable=self.config.generic_params.enable_metrics,

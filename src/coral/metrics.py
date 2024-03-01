@@ -20,9 +20,8 @@ class CoralNodeMetrics:
     - 数据帧从发送到接收的时间
     """
 
-    def __init__(self, enable, gateway_id, pipeline_id, node_id) -> None:
+    def __init__(self, enable, pipeline_id, node_id) -> None:
         self.enable = enable
-        self.gateway_id = gateway_id
         self.pipeline_id = pipeline_id
         self.node_id = node_id
         self.labels = list(self.default_labels.keys())
@@ -34,7 +33,6 @@ class CoralNodeMetrics:
     @property
     def default_labels(self):
         return {
-            "gateway_id": self.gateway_id,
             "pipeline_id": self.pipeline_id,
             "node_id": self.node_id,
         }

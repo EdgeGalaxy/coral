@@ -101,13 +101,9 @@ class BaseParse:
     @property
     def data(self) -> ConfigModel:
         return self.__data
-    
-    @property
-    def gateway_id(self):
-        return self.data.gateway_id
 
     @property
-    def pipeline_id(self):
+    def pipeline_id(self) -> str:
         return self.data.pipeline_id
 
     @property
