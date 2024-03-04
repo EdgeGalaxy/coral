@@ -14,7 +14,6 @@ class CoralBaseModel(BaseModel):
         arbitrary_types_allowed = True
 
 
-
 class ObjectsPayload(BaseModel):
     id: int = None
     labels: List[str]

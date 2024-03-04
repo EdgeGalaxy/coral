@@ -7,7 +7,7 @@ from functools import cached_property
 from typing import List, Dict, Union
 
 from loguru import logger
-from filelock import Timeout, FileLock
+from filelock import FileLock
 
 from pydantic import BaseModel, Field, computed_field, validator
 

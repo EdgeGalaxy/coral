@@ -18,25 +18,21 @@ class BaseParse:
     def parse(cls, config_path: str) -> 'BaseParse':
         raise NotImplementedError
     
-    def parse_json_schema(self):
+    def parse_json_schema(self, node_type):
         """
         Parse the JSON schema and generate a ConfigSchemaModel.
 
         :return: The JSON schema for the ConfigSchemaModel.
         """
-        _params_cls = self.data._params_cls if self.data._params_cls else None
-        _return_cls = self.meta.sender.return_cls if self.meta.sender else None
         _receiver_raw_type = self.meta.receivers[0].raw_type if self.meta.receivers else ''
         _receiver_topic = self.meta.receivers[0].topic if self.meta.receivers else ''
         _sender_raw_type = self.meta.sender.raw_type if self.meta.sender else ''
         _sender_topic = self.meta.sender.topic if self.meta.sender else ''
+        _params_cls = self.data._params_cls if self.data._params_cls else None
+        _return_cls = self.meta.sender.return_cls if self.meta.sender else None
 
         ConfigSchemaModel = create_model(
             'ConfigSchemaModel',
-            receiver_raw_type = (str, Field(frozen=True, default=_receiver_raw_type, description='接收的类型')),
-            sender_raw_type = (str, Field(frozen=True, default=_sender_raw_type, description='发送的类型')),
-            receiver_topic = (str, Field(frozen=True, default=_receiver_topic, description='接收的topic')),
-            sender_topic = (str, Field(frozen=True, default=_sender_topic, description='发送的topic')),
             generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='通用参数')),
             __base__=CoralBaseModel, 
         )
@@ -62,7 +58,14 @@ class BaseParse:
                 return_cls=(_return_cls, Field(frozen=True, description='节点返回值', default=None)), 
                 __base__=ConfigSchemaModel, 
             )
-
+        
+        result = {
+            'node_type': node_type,
+            'receiver_raw_type': _receiver_raw_type,
+            'sender_raw_type': _sender_raw_type,
+            'receiver_topic': _receiver_topic,
+            'sender_topic': _sender_topic,
+        }
         data = ConfigSchemaModel.model_json_schema()
 
         def rebuild_schema_data(schema):
@@ -84,7 +87,8 @@ class BaseParse:
                 return_data[k] = properties
             return return_data
 
-        return rebuild_schema_data(data)
+        result.update(rebuild_schema_data(data))
+        return result
 
     def __init_data(self, data) -> ConfigModel:
         """

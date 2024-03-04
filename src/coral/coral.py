@@ -5,7 +5,7 @@ import uuid
 import queue
 import requests
 import multiprocessing
-from typing import Dict, List, Any
+from typing import Dict, List, Any, NamedTuple
 from loguru import logger
 from threading import Thread
 from collections import defaultdict, deque
@@ -33,12 +33,16 @@ from .types import (
 CORAL_NODE_CONFIG_PATH = os.environ.get("CORAL_NODE_CONFIG_PATH")
 # 节点配置Bas64环境变量
 CORAL_NODE_BASE64_DATA = os.environ.get("CORAL_NODE_BASE64_DATA")
+# 节点类型
+NODE_TYPES = ["DataProducerNode", "RecognitionNode", "BusinessNode", "MediaProcessNode"]
 
 
 class CoralNode(MiddlewareCommunicator):
     config_fp = 'config.json'
+    node_type = None
 
     def __init__(self):
+        assert self.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
         config_path, file_type = self.get_config()
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
@@ -53,7 +57,7 @@ class CoralNode(MiddlewareCommunicator):
         self.receiver_times.append(self.run_time)
         self.sender_times.append(self.run_time)
         # node info report
-        self.config_schema = self.config.parse_json_schema()
+        self.config_schema = self.config.parse_json_schema(self.node_type)
         # publish node schema
         self.publish_node_schema()
         # metrics

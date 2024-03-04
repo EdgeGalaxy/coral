@@ -10,6 +10,9 @@
                 "node_id": "node2"
             }
     },
+    "generic": {
+        "skip_frame": 2
+    },
     "params": {
         "model": "model_path",
         "run": 100
