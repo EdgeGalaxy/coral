@@ -16,6 +16,9 @@ from .constants import DEFAULT_NO_RECEVIER_MSG
 from .parse import CoralParser
 from .parser import BaseParse
 from .metrics import CoralNodeMetrics
+from .exception import (
+    CoralSenderIgnoreException,
+)
 from .types import (
     MetaModel,
     ParamsModel,
@@ -328,8 +331,11 @@ class CoralNode(MiddlewareCommunicator):
             data = payload.model_dump()
             logger.debug(f"{payload.node_id} send data cost time: {cost_time} ")
             return (data,)
+        except CoralSenderIgnoreException as e:
+            return (None,)
         except Exception as e:
             logger.exception(f"__sender func error: {e}")
+            return (None,)
 
     def __init(self):
         """
