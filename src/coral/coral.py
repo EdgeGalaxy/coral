@@ -87,7 +87,7 @@ class CoralNode(MiddlewareCommunicator):
         return cls.config_fp, cls.config_fp.split('.')[-1]
     
     @classmethod
-    def register(cls):
+    def node_register(cls):
         assert cls.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
         config_path, file_type = cls.get_config()
         config = CoralParser.parse(config_path, file_type)
