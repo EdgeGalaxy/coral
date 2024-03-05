@@ -5,6 +5,7 @@ import uuid
 import queue
 import requests
 import multiprocessing
+from urllib.parse import urljoin
 from typing import Dict, List, Any, NamedTuple
 from loguru import logger
 from threading import Thread
@@ -61,8 +62,6 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times.append(self.run_time)
         # node info report
         self.config_schema = self.config.parse_json_schema(self.node_type)
-        # publish node schema
-        self.publish_node_schema()
         # metrics
         self.metrics = CoralNodeMetrics(
             pipeline_id=self.config.pipeline_id,
@@ -76,17 +75,27 @@ class CoralNode(MiddlewareCommunicator):
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
     
-    def get_config(self):
+    @classmethod
+    def get_config(cls):
         if CORAL_NODE_BASE64_DATA:
             logger.info(f'use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}')
             return CORAL_NODE_BASE64_DATA, 'base64'
         if CORAL_NODE_CONFIG_PATH:
             logger.info(f'use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}')
             return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split('.')[-1]
-        logger.info(f'use default config path: {self.config_fp}')
-        return self.config_fp, self.config_fp.split('.')[-1]
+        logger.info(f'use default config path: {cls.config_fp}')
+        return cls.config_fp, cls.config_fp.split('.')[-1]
     
-    def publish_node_schema(self):
+    @classmethod
+    def register(cls):
+        assert cls.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
+        config_path, file_type = cls.get_config()
+        config = CoralParser.parse(config_path, file_type)
+        schema = config.parse_json_schema(cls.node_type)
+        cls.publish_node_schema(schema)
+
+    @classmethod
+    def publish_node_schema(cls, schema: dict):
         """
         publish node schema info to remote
 
@@ -98,15 +107,15 @@ class CoralNode(MiddlewareCommunicator):
         register_url = os.environ.get("CORAL_NODE_REGISTER_URL")
         logger.info(f"publish node schema: {node_id} {node_version} {node_image} {register_url}!")
         if all([node_id, node_version, node_image, register_url]):
-            url = register_url.format(node_id=node_id, version=node_version)
-            self.config_schema.update({'image': node_image})
-            r = requests.post(url, json=self.config_schema, timeout=5)
+            url = urljoin(register_url, f'/api/node/{node_id}/{node_version}')
+            schema.update({'image': node_image})
+            r = requests.post(url, json=schema, timeout=5)
             if r.ok:
-                logger.info(f"publish node schema success: {url} {json.dumps(self.config_schema)}!")
+                logger.info(f"publish node schema success: {url} {json.dumps(schema)}!")
             else:
-                raise Exception(f"publish node schema failed: {r.status_code} {r.content}!")
+                raise Exception(f"publish node schema failed: {url} {r.status_code} {r.content}!")
         else:
-            logger.info(f"not need publish node schema: {json.dumps(self.config_schema)}!")
+            logger.info(f"not need publish node schema: {json.dumps(schema)}!")
         
     @property
     def skip_frame_count(self):

@@ -23,6 +23,7 @@ class Node1ParamsModel(ParamsModel):
 class Node1(CoralNode):
 
     config_fp = 'config.json'
+    node_type = 'DataProducerNode'
 
     def init(self, context: dict):
         blue_image = np.zeros((640, 640, 3), np.uint8)

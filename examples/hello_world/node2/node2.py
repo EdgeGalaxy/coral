@@ -18,6 +18,7 @@ class Node2ParamsModel(ParamsModel):
 class Node2(CoralNode):
 
     config_fp = 'config.json'
+    node_type = 'RecognitionNode'
 
     def init(self, context: dict):
         print("Hello World")

@@ -23,6 +23,7 @@ class Node3ReturnPayload(ReturnPayload):
 class Node3(CoralNode):
 
     config_path = 'config.json'
+    node_type = 'MediaProcessNode'
 
     def init(self, context: dict):
         context.update({'init': 'node1'})
