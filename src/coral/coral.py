@@ -107,7 +107,7 @@ class CoralNode(MiddlewareCommunicator):
         register_url = os.environ.get("CORAL_NODE_REGISTER_URL")
         logger.info(f"publish node schema: {node_id} {node_version} {node_image} {register_url}!")
         if all([node_id, node_version, node_image, register_url]):
-            url = urljoin(register_url, f'/api/node/{node_id}/{node_version}')
+            url = urljoin(register_url, f'/api/v1/node/{node_id}/{node_version}')
             schema.update({'image': node_image})
             r = requests.post(url, json=schema, timeout=5)
             if r.ok:
