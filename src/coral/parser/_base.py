@@ -18,7 +18,7 @@ class BaseParse:
     def parse(cls, config_path: str) -> 'BaseParse':
         raise NotImplementedError
     
-    def parse_json_schema(self, node_type):
+    def parse_json_schema(self, node_name: str, node_desc: str, node_type: str):
         """
         Parse the JSON schema and generate a ConfigSchemaModel.
 
@@ -60,6 +60,8 @@ class BaseParse:
             )
         
         result = {
+            'node_name': node_name,
+            'node_desc': node_desc,
             'node_type': node_type,
             'receiver_raw_type': _receiver_raw_type,
             'sender_raw_type': _sender_raw_type,

@@ -42,11 +42,17 @@ NODE_TYPES = ["DataProducerNode", "RecognitionNode", "BusinessNode", "MediaProce
 
 
 class CoralNode(MiddlewareCommunicator):
-    config_fp = 'config.json'
+
     node_type = None
+    node_name = None
+    node_desc = None
+
+    config_fp = 'config.json'
 
     def __init__(self):
         assert self.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
+        assert self.node_name is not None, 'node name must not be None!'
+        assert self.node_desc is not None, 'node desc must not be None!'
         config_path, file_type = self.get_config()
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
@@ -61,7 +67,11 @@ class CoralNode(MiddlewareCommunicator):
         self.receiver_times.append(self.run_time)
         self.sender_times.append(self.run_time)
         # node info report
-        self.config_schema = self.config.parse_json_schema(self.node_type)
+        self.config_schema = self.config.parse_json_schema(
+            self.node_name, 
+            self.node_desc, 
+            self.node_type
+        )
         # metrics
         self.metrics = CoralNodeMetrics(
             pipeline_id=self.config.pipeline_id,
