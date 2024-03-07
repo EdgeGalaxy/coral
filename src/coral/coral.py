@@ -66,12 +66,6 @@ class CoralNode(MiddlewareCommunicator):
         self.sender_times = deque(maxlen=1000)
         self.receiver_times.append(self.run_time)
         self.sender_times.append(self.run_time)
-        # node info report
-        self.config_schema = self.config.parse_json_schema(
-            self.node_name, 
-            self.node_desc, 
-            self.node_type
-        )
         # metrics
         self.metrics = CoralNodeMetrics(
             pipeline_id=self.config.pipeline_id,
@@ -101,7 +95,7 @@ class CoralNode(MiddlewareCommunicator):
         assert cls.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
         config_path, file_type = cls.get_config()
         config = CoralParser.parse(config_path, file_type)
-        schema = config.parse_json_schema(cls.node_type)
+        schema = config.parse_json_schema(cls.node_name, cls.node_desc, cls.node_type)
         cls.publish_node_schema(schema)
 
     @classmethod
