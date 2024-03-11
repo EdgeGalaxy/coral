@@ -22,6 +22,8 @@ class Node1ParamsModel(ParamsModel):
 
 class Node1(CoralNode):
 
+    node_name = '模拟视频流节点'
+    node_desc = 'opencv随机生成视频流传输，供测试'
     config_fp = 'config.json'
     node_type = 'DataProducerNode'
 
@@ -37,4 +39,9 @@ class Node1(CoralNode):
 
 
 if __name__ == '__main__':
-    Node1().run()
+    import os
+    run_type = os.getenv("CORAL_NODE_RUN_TYPE", "run")
+    if run_type == 'register':
+        Node1.node_register()
+    else:
+        Node1().run()

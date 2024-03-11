@@ -17,6 +17,8 @@ class Node2ParamsModel(ParamsModel):
 
 class Node2(CoralNode):
 
+    node_name = 'Yolo节点'
+    node_desc = '模型推理节点'
     config_fp = 'config.json'
     node_type = 'RecognitionNode'
 
@@ -30,4 +32,9 @@ class Node2(CoralNode):
 
 
 if __name__ == '__main__':
-    Node2().run()
+    import os
+    run_type = os.getenv("CORAL_NODE_RUN_TYPE", "run")
+    if run_type == 'register':
+        Node2.node_register()
+    else:
+        Node2().run()

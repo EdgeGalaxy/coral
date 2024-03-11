@@ -11,8 +11,8 @@ from coral import CoralNode, ParamsModel, ReturnPayload, RTManager, PTManager, C
 
 @PTManager.register()
 class Node3ParamsModel(ParamsModel):
-    model: str
-    run: int
+    model: str = 'model.pt'
+    run: int = 200
 
 
 @RTManager.register()
@@ -22,6 +22,8 @@ class Node3ReturnPayload(ReturnPayload):
 
 class Node3(CoralNode):
 
+    node_name = '视频流展示'
+    node_desc = '视频流展示节点，通过web展示视频流'
     config_path = 'config.json'
     node_type = 'MediaProcessNode'
 
@@ -33,4 +35,9 @@ class Node3(CoralNode):
 
 
 if __name__ == '__main__':
-    Node3().run()
+    import os
+    run_type = os.getenv("CORAL_NODE_RUN_TYPE", "run")
+    if run_type == 'register':
+        Node3.node_register()
+    else:
+        Node3().run()
