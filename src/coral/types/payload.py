@@ -17,7 +17,7 @@ class CoralBaseModel(BaseModel):
 
 
 class ObjectsPayload(BaseModel):
-    id: Optional[Union[int, NoneType]] = None
+    id: Optional[Union[List[int], NoneType]] = None
     labels: List[str]
     class_ids: List[int]
     probs: List[float]
@@ -31,6 +31,10 @@ class ReturnPayload(CoralBaseModel):
 
 class FirstPayload(ReturnPayload):
     raw: Union[np.ndarray, str] = None
+
+
+class InferencePayload(ReturnPayload):
+    objects: ObjectsPayload
 
 
 class ParamsModel(CoralBaseModel):

@@ -29,7 +29,7 @@ from .types import (
     ProcessModel,
     RawPayload,
     FirstPayload,
-    ObjectsPayload,
+    InferencePayload,
 )
 
 
@@ -50,9 +50,9 @@ class CoralNode(MiddlewareCommunicator):
     config_fp = 'config.json'
 
     def __init__(self):
-        assert self.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
-        assert self.node_name is not None, 'node name must not be None!'
-        assert self.node_desc is not None, 'node desc must not be None!'
+        assert self.node_type in NODE_TYPES, 'node_type must in {}'.format(NODE_TYPES)
+        assert self.node_name is not None, 'node_name must not be None!'
+        assert self.node_desc is not None, 'node_desc must not be None!'
         config_path, file_type = self.get_config()
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
@@ -306,8 +306,8 @@ class CoralNode(MiddlewareCommunicator):
                 payload.raw = sender_payload.raw
             else:
                 # ObjectsModel类型
-                if isinstance(sender_payload, ObjectsPayload):
-                    payload.objects = sender_payload
+                if isinstance(sender_payload, InferencePayload):
+                    payload.objects = sender_payload.objects
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
                     payload.metas = payload.metas or {}

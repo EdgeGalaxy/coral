@@ -4,7 +4,7 @@ from typing import List
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, ObjectsPayload, RTManager, PTManager
+from coral import CoralNode, ParamsModel, InferencePayload, RTManager, PTManager, ObjectsPayload
 
 
 
@@ -13,6 +13,10 @@ class Node2ParamsModel(ParamsModel):
     model: str
     run: int
 
+
+@RTManager.register()
+class ObjectsReturnPayload(InferencePayload):
+    objects: ObjectsPayload
 
 
 class Node2(CoralNode):
@@ -27,8 +31,14 @@ class Node2(CoralNode):
         print(self.params)
         context.update({'init': 'node1'})
 
-    def sender(self, payload: dict, context: dict) -> ObjectsPayload:
-        return ObjectsPayload(boxes=[[1, 2, 3, 4]], class_ids=[1], labels=['person'], probs=[0.9])
+    def sender(self, payload: dict, context: dict) -> ObjectsReturnPayload:
+        objects = {
+            "class_ids": [1],
+            "labels": ["person"],
+            "probs": [0.9],
+            "boxes": [[1, 2, 3, 4]]
+        }
+        return ObjectsReturnPayload(objects=objects)
 
 
 if __name__ == '__main__':
