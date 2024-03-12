@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import numpy as np
-from typing import Union
+from typing import List
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
@@ -11,7 +11,7 @@ from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, Co
 
 @RTManager.register()
 class Node1ReturnPayload(FirstPayload):
-    raw: Union[np.ndarray, str] 
+    raw: List
 
 
 @PTManager.register()

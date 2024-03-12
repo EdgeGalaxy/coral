@@ -1,3 +1,4 @@
+from types import NoneType
 import uuid
 import time
 
@@ -15,12 +16,12 @@ class CoralBaseModel(BaseModel):
 
 
 class ObjectsPayload(BaseModel):
-    id: int = None
+    id: Optional[Union[int, NoneType]] = None
     labels: List[str]
     class_ids: List[int]
     probs: List[float]
     boxes: List[Tuple] = []
-    objects: 'ObjectsPayload' = []
+    objects: Optional[Union['ObjectsPayload', NoneType]] = None
 
 
 class ReturnPayload(CoralBaseModel):
@@ -135,6 +136,7 @@ RTManager = ReturnManager
 
 @DTManager.register("RawImage")
 class RawImagePayload(RawPayload):
+
     @validator("raw")
     def check_image(cls, v):
         if not isinstance(v, np.ndarray):

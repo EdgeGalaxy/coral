@@ -11,7 +11,7 @@
             }
     },
     "generic": {
-        "skip_frame": 2
+        "enable_metrics": false
     },
     "params": {
         "model": "model_path",

@@ -2,9 +2,11 @@
     "node_id": "node3",
     "meta": {
         "receivers": [{
-            "node_id": "node1"
-        }]
-        
+            "node_id": "node2"
+        }],
+        "sender": {
+            "node_id": "node3"
+        }
     },
     "params": {
         "model": "model_path",
