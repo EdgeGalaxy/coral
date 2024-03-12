@@ -11,6 +11,7 @@ from pydantic import validator
 
 
 class CoralBaseModel(BaseModel):
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -39,7 +40,7 @@ class ParamsModel(CoralBaseModel):
 class RawPayload(CoralBaseModel):
     node_id: str
     raw_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    raw: Union[np.ndarray, str] = None
+    raw: Union[List, str] = None
     nodes_cost: float = 0
     timestamp: float = Field(default_factory=time.perf_counter)
     objects: Optional[ObjectsPayload] = None
@@ -139,8 +140,10 @@ class RawImagePayload(RawPayload):
 
     @validator("raw")
     def check_image(cls, v):
-        if not isinstance(v, np.ndarray):
+        if not isinstance(v, List):
             raise ValueError("Image must be a numpy array")
+        
+        v = np.array(v)
 
         if len(v.shape) != 3 or v.shape[2] not in [3, 4]:
             raise ValueError(
