@@ -6,7 +6,7 @@ import queue
 import requests
 import multiprocessing
 from urllib.parse import urljoin
-from typing import Dict, List, Any, NamedTuple
+from typing import Dict, List, Any, NamedTuple, get_args
 from loguru import logger
 from threading import Thread
 from collections import defaultdict, deque
@@ -29,7 +29,7 @@ from .types import (
     ProcessModel,
     RawPayload,
     FirstPayload,
-    InferencePayload,
+    BaseInterfacePayload,
 )
 
 
@@ -57,8 +57,8 @@ class CoralNode(MiddlewareCommunicator):
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
         self._process_cls = self.__process_cls()
-        self.receivers = self.__init_receivers(self.meta.receivers)
         self.__init_sender(self.meta.sender)
+        self.receivers = self.__init_receivers(self.meta.receivers)
         # run time
         self.run_time = time.time()
         # fps cal
@@ -167,10 +167,8 @@ class CoralNode(MiddlewareCommunicator):
             - If the run mode is 'threads', return a queue.Queue object with a maximum size of self.process.max_qsize.
             - If the run mode is not 'threads', return a multiprocessing.Queue object with a maximum size of self.process.max_qsize.
         """
-        if self.process.run_mode == "threads":
-            return queue.Queue(maxsize=self.process.max_qsize)
-        else:
-            return multiprocessing.Queue(maxsize=self.process.max_qsize)
+        # 默认一秒可以处理60个数据，最大存储3秒的数据
+        return deque(maxlen=self.process.max_qsize)
 
     def __process_cls(self):
         """
@@ -183,10 +181,7 @@ class CoralNode(MiddlewareCommunicator):
             Type: Either `Thread` or `multiprocessing.Process`
 
         """
-        if self.process.run_mode == "threads":
-            return Thread
-        else:
-            return multiprocessing.Process
+        return Thread
 
     def __init_sender(self, meta: SenderModel):
         """
@@ -211,6 +206,8 @@ class CoralNode(MiddlewareCommunicator):
             meta.topic,
             carrier=meta.carrier,
             should_wait=meta.blocking,
+            socket_sub_port=meta.socket_sub_port,
+            socket_pub_port=meta.socket_pub_port,
             proxy_broker_spawn="thread",
             pubsub_monitor_listener_spawn="thread",
             **meta.params,
@@ -251,6 +248,8 @@ class CoralNode(MiddlewareCommunicator):
                 should_wait=meta.blocking,
                 payload_cls=meta.payload_cls,
                 node_id=meta.node_id,
+                socket_sub_port=meta.socket_sub_port,
+                socket_pub_port=meta.socket_pub_port,
                 proxy_broker_spawn="thread",
                 pubsub_monitor_listener_spawn="thread",
                 **meta.params,
@@ -274,7 +273,7 @@ class CoralNode(MiddlewareCommunicator):
             Any: The data returned by the sender method.
         """
         try:
-            st = time.perf_counter()
+            st = time.time()
             payload: RawPayload = kwargs.pop("payload", {})
             context: Dict = kwargs.pop("context", {})
             sender_payload = self.sender(payload, context)
@@ -306,8 +305,14 @@ class CoralNode(MiddlewareCommunicator):
                 payload.raw = sender_payload.raw
             else:
                 # ObjectsModel类型
-                if isinstance(sender_payload, InferencePayload):
-                    payload.objects = sender_payload.objects
+                if isinstance(sender_payload, BaseInterfacePayload):
+                    objects_cls = payload.__annotations__['objects']
+                    if type(sender_payload) in get_args(objects_cls):
+                        payload.objects = sender_payload
+                    else:
+                        raise TypeError(
+                            f"sender payload type is: {type(sender_payload)}, need [ {type(payload.objects)} ]"
+                        )
                 # 结果记录到Meta中
                 elif isinstance(sender_payload, self.meta.sender.return_cls):
                     payload.metas = payload.metas or {}
@@ -325,11 +330,11 @@ class CoralNode(MiddlewareCommunicator):
                 payload.node_id = "$".join([payload.node_id, self.config.node_id])
 
             # node整体耗时：从接收到处理
-            payload.nodes_cost += time.perf_counter() - payload.timestamp
+            payload.nodes_cost += time.time() - payload.timestamp
             # 更新发送时间
-            payload.timestamp = time.perf_counter()
+            payload.timestamp = time.time()
             # 记录节点处理耗时&数量
-            cost_time = time.perf_counter() - st
+            cost_time = time.time() - st
             self.metrics.cost_process_frames(cost_time)
             self.metrics.count_process_frames()
 
@@ -388,9 +393,13 @@ class CoralNode(MiddlewareCommunicator):
         """
         context = self.__init()
         while True:
-            if self._queue.empty():
+            try:
+                payload = self._queue.popleft()
+            except IndexError:
+                # 队列不存在值
+                time.sleep(0.01)
                 continue
-            payload = self._queue.get()
+
             if payload is None:
                 continue
             self.__sender(self, payload=payload, context=context)
@@ -413,13 +422,13 @@ class CoralNode(MiddlewareCommunicator):
 
         # 处理对应的帧
         if self.process.enable_parallel:
-            if not self._queue.full():
-                self._queue.put_nowait(payload)
-            else:
+            if self._queue.maxlen == len(self._queue):
                 logger.warning(
-                    f"{self.__class__.__name__} queue is full! skip this topic: [ {payload} ] payload!"
+                    f"{self.__class__.__name__} queue is full! overwrite pre payload"
                 )
                 self.metrics.count_drop_frames(action="full")
+
+            self._queue.append(payload)
         else:
             self.__sender(self, payload=payload, context=context)
         # display fps
@@ -474,7 +483,7 @@ class CoralNode(MiddlewareCommunicator):
         # 启动后台处理程序
         for idx in range(self.process.count):
             self._process_cls(
-                target=self.__run, name=f"coral_{self.process.run_mode}_{idx}"
+                target=self.__run, name=f"coral_process_{idx}"
             ).start()
 
     def _record_and_just_is_pass_frame(self, recv_node_id):

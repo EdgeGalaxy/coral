@@ -1,14 +1,18 @@
 {
     "node_id": "node2",
+    "process": {
+        "enable_parallel": true,
+        "count": 5
+    },
     "meta": {
         "receivers": [
             {
                 "node_id": "node1"
             }
         ],
-        "sender": {
-                "node_id": "node2",
-                "raw_type": "RawImage"
+        "sender": 
+            {
+                "node_id": "node2"
             }
     },
     "generic": {

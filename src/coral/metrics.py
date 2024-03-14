@@ -79,7 +79,6 @@ class CoralNodeMetrics:
         extra_labels: dict = None,
     ):
         if not self.enable:
-            logger.debug(f"Metrics disabled!")
             return
         extra_labels = extra_labels or {}
         labels = {**self.default_labels, **extra_labels}

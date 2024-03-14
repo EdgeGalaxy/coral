@@ -6,12 +6,7 @@ from typing import List
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, ConfigModel
-
-
-@RTManager.register()
-class Node1ReturnPayload(FirstPayload):
-    raw: List
+from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
 
 
 @PTManager.register()
@@ -34,8 +29,8 @@ class Node1(CoralNode):
 
 
     def sender(self, payload: dict, context: dict):
-        time.sleep(0.01)
-        return {'raw': context['raw']}
+        # time.sleep(0.01)
+        return FirstPayload(raw=context['raw'])
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ from pydantic import create_model, Field
 
 from coral.types.payload import ReturnPayload
 
-from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel, GenericParamsModel
+from ..types import ConfigModel, MetaModel, ModeModel, CoralBaseModel, ParamsModel, GenericParamsModel, ProcessModel
 
 
 
@@ -33,7 +33,8 @@ class BaseParse:
 
         ConfigSchemaModel = create_model(
             'ConfigSchemaModel',
-            generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='通用参数')),
+            process_cls = (ProcessModel, Field(frozen=True, default=ProcessModel(), description='系统运行参数')),
+            generic_cls = (GenericParamsModel, Field(frozen=True, default=GenericParamsModel(), description='业务通用参数')),
             __base__=CoralBaseModel, 
         )
 
@@ -70,26 +71,27 @@ class BaseParse:
         }
         data = ConfigSchemaModel.model_json_schema()
 
-        def rebuild_schema_data(schema):
-            return_data = {}
-            for k, v in schema['properties'].items():
-                ref = v.pop('allOf', None)
-                if not ref:
-                    return_data[k] = v
-                    continue
-                if len(ref) != 1:
-                    raise ValueError(f"一个字段仅支持一种类型参数, 当前字段: {k} 不符合要求")
-                _, defs, model_name = ref[0]['$ref'].split('/')
-                ref_model = schema[defs][model_name]
-                properties = {}
-                for k1, v1 in ref_model['properties'].items():
-                    if 'allOf' in v1:
-                        raise ValueError(f"不支持嵌套定义, 当前字段: {k} -> {k1} 不符合要求")
-                    properties[k1] = v1
-                return_data[k] = properties
-            return return_data
+        # def rebuild_schema_data(schema):
+        #     return_data = {}
+        #     for k, v in schema['properties'].items():
+        #         ref = v.pop('allOf', None)
+        #         if not ref:
+        #             return_data[k] = v
+        #             continue
+        #         if len(ref) != 1:
+        #             raise ValueError(f"一个字段仅支持一种类型参数, 当前字段: {k} 不符合要求")
+        #         _, defs, model_name = ref[0]['$ref'].split('/')
+        #         ref_model = schema[defs][model_name]
+        #         properties = {}
+        #         for k1, v1 in ref_model['properties'].items():
+        #             if 'allOf' in v1:
+        #                 raise ValueError(f"不支持嵌套定义, 当前字段: {k} -> {k1} 不符合要求")
+        #             properties[k1] = v1
+        #         return_data[k] = properties
+        #     return return_data
+        # result.update(rebuild_schema_data(data))
 
-        result.update(rebuild_schema_data(data))
+        result.update({'schema': data})
         return result
 
     def __init_data(self, data) -> ConfigModel:

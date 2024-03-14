@@ -1,13 +1,18 @@
 from types import NoneType
+from typing_extensions import Annotated
 import uuid
 import time
 
-from typing import List, Union, Dict, Optional, Tuple
-from pydantic import BaseModel, Field
+from typing import Any, List, Union, Dict, Optional, Tuple
+from pydantic import BaseModel, Field, WithJsonSchema
 
 import numpy as np
 from wrapyfi.publishers import Publishers
 from pydantic import validator
+
+
+CoralIntNdarray = Annotated[np.ndarray, WithJsonSchema({'type': 'array', 'items': {'type': 'integer'}})] 
+CoralFloatNdarray = Annotated[np.ndarray, WithJsonSchema({'type': 'array', 'items': {'type': 'number'}})]
 
 
 class CoralBaseModel(BaseModel):
@@ -16,25 +21,30 @@ class CoralBaseModel(BaseModel):
         arbitrary_types_allowed = True
 
 
-class ObjectsPayload(BaseModel):
+
+class ReturnPayload(CoralBaseModel):
+    pass
+
+
+class BaseInterfacePayload(ReturnPayload):
+    objects: Any
+
+
+class ReturnPayloadWithTS(ReturnPayload):
+    timestamp: float = Field(default_factory=time.time)
+
+
+class FirstPayload(ReturnPayloadWithTS):
+    raw: Union[CoralIntNdarray, str]
+
+
+class ObjectsPayload(BaseInterfacePayload):
     id: Optional[Union[List[int], NoneType]] = None
     labels: List[str]
     class_ids: List[int]
     probs: List[float]
     boxes: List[Tuple] = []
     objects: Optional[Union['ObjectsPayload', NoneType]] = None
-
-
-class ReturnPayload(CoralBaseModel):
-    timestamp: float = Field(default_factory=time.perf_counter)
-
-
-class FirstPayload(ReturnPayload):
-    raw: Union[np.ndarray, str] = None
-
-
-class InferencePayload(ReturnPayload):
-    objects: ObjectsPayload
 
 
 class ParamsModel(CoralBaseModel):
@@ -44,9 +54,9 @@ class ParamsModel(CoralBaseModel):
 class RawPayload(CoralBaseModel):
     node_id: str
     raw_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    raw: Union[List, str] = None
+    raw: Union[CoralIntNdarray, str] = None
     nodes_cost: float = 0
-    timestamp: float = Field(default_factory=time.perf_counter)
+    timestamp: float = Field(default_factory=time.time)
     objects: Optional[ObjectsPayload] = None
     metas: Optional[Dict[str, ReturnPayload]] = None
 
@@ -144,11 +154,9 @@ class RawImagePayload(RawPayload):
 
     @validator("raw")
     def check_image(cls, v):
-        if not isinstance(v, List):
+        if not isinstance(v, np.ndarray):
             raise ValueError("Image must be a numpy array")
         
-        v = np.array(v)
-
         if len(v.shape) != 3 or v.shape[2] not in [3, 4]:
             raise ValueError(
                 "Image must be a 3-channel (RGB/BGR) or 4-channel (RGBA/BGRA) format"
@@ -163,13 +171,4 @@ class RawImagePayload(RawPayload):
 class RawMetricsPayload(MetricsPayload):
     pass
 
-
-@DTManager.register("RawTest")
-class RawTestPayload(RawPayload):
-    pass
-
-
-# @DTManager.register("RawBatchImage")
-# class RawBatchImagePayload(BatchRawPayload):
-#     pass
 

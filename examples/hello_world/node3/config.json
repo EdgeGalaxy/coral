@@ -3,10 +3,11 @@
     "meta": {
         "receivers": [{
             "node_id": "node2"
-        }],
-        "sender": {
-            "node_id": "node3"
-        }
+        }]
+    },
+    "generic": {
+
+        "enable_metrics": false
     },
     "params": {
         "model": "model_path",

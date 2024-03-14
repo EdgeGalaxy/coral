@@ -6,7 +6,6 @@
         }
     },
     "generic": {
-
         "enable_metrics": false
     },
     "params": {

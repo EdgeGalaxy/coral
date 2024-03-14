@@ -1,13 +1,5 @@
-import os
-import json
-import socket
-from pathlib import Path
-from contextlib import closing
 from functools import cached_property
 from typing import List, Dict, Union
-
-from loguru import logger
-from filelock import FileLock
 
 from pydantic import BaseModel, Field, computed_field, validator
 
@@ -42,12 +34,14 @@ class PubSubBaseModel(CoralBaseModel):
     topic: str = Field(default=None)
     carrier: str = Field(frozen=True, default="tcp")
     blocking: bool = Field(frozen=True, default=False)
+    socket_sub_port: int = Field(default=5556)
+    socket_pub_port: int = Field(default=5555)
     params: Dict[str, Union[str, int, bool, float]] = Field(frozen=True, default={})
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.topic = f"{self.node_id}_{self.raw_type}_{self.mware}"
-
+        if not self.topic:
+            self.topic = f'{self.node_id}_{self.raw_type}_{self.mware}'
 
 class ReceiverModel(PubSubBaseModel):
 
@@ -122,9 +116,8 @@ class MetaModel(CoralBaseModel):
 
 
 class ProcessModel(CoralBaseModel):
-    max_qsize: int = Field(frozen=True, default=30)
+    max_qsize: int = Field(frozen=True, default=180)
     count: int = Field(frozen=True, default=3)
-    run_mode: str = Field(frozen=True, default="threads")
     enable_parallel: bool = Field(frozen=True, default=False)
 
 
