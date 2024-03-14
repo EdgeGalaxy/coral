@@ -8,11 +8,12 @@ sys.path.append(os.path.abspath('../../../src'))
 from coral import CoralNode, ParamsModel, PTManager, ObjectsPayload
 
 
-
 @PTManager.register()
 class Node2ParamsModel(ParamsModel):
-    model: str
-    run: int
+    threshold: float = 0.3
+    canvas: List[int] = [4, 4, 4, 4]
+    max_scores: float = 0.98
+    
 
 
 class Node2(CoralNode):

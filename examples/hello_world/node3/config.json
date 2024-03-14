@@ -9,8 +9,5 @@
 
         "enable_metrics": false
     },
-    "params": {
-        "model": "model_path",
-        "run": 100
-    }
+    "params": {}
 }

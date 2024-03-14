@@ -6,18 +6,14 @@ from typing import Union
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, ReturnPayload, RTManager, PTManager, ConfigModel
+from coral import CoralNode, ParamsModel, PTManager
 
 
 @PTManager.register()
 class Node3ParamsModel(ParamsModel):
-    model: str = 'model.pt'
-    run: int = 200
-
-
-@RTManager.register()
-class Node3ReturnPayload(ReturnPayload):
-    result: str
+    width: int = 100
+    height: int = 100
+    encode: str = 'jpg'
 
 
 class Node3(CoralNode):
@@ -30,8 +26,8 @@ class Node3(CoralNode):
     def init(self, context: dict):
         context.update({'init': 'node1'})
 
-    def sender(self, payload: dict, context: dict) -> Node3ReturnPayload:
-        return {"result": "hello world"}
+    def sender(self, payload: dict, context: dict):
+        return None
 
 
 if __name__ == '__main__':

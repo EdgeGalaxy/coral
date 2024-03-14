@@ -3,16 +3,27 @@ import sys
 import time
 import numpy as np
 from typing import List
+
+from pydantic import BaseModel
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
 from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
 
 
+class Point(BaseModel):
+    x1: int = 0
+    y1: int = 11
+    x2: int = 23
+    y2: int = 33
+
+
 @PTManager.register()
 class Node1ParamsModel(ParamsModel):
-    model: str = 'model.pt'
-    width: int = 100
+    width: int = 1080
+    height: int = 1280
+    source: str = '/dev/video0'
+    items: Point = Point()
 
 
 class Node1(CoralNode):

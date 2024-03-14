@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, computed_field, validator
 
 from .payload import (
     DTManager,
+    ParamsModel,
     RawPayload,
     PTManager,
     ReturnPayload,
@@ -124,7 +125,6 @@ class ProcessModel(CoralBaseModel):
 class GenericParamsModel(CoralBaseModel):
     skip_frame: int = Field(frozen=True, default=0, description="每隔几帧处理一次")
     enable_metrics: bool = Field(frozen=True, default=True, description="是否开启服务监控")
-    # metrics_sender: SenderModel = Field(frozen=True, default=None, description="监控发送器")
     metrics_interval: int = Field(frozen=True, default=10, description="监控间隔")
 
 
@@ -153,7 +153,7 @@ class ConfigModel(CoralBaseModel):
 
     @computed_field
     @cached_property
-    def _params_cls(self) -> RawPayload:
+    def _params_cls(self) -> ParamsModel:
         if PTManager.default_type() is None:
             return None
         return PTManager.registry[PTManager.default_type()]
