@@ -3,7 +3,7 @@
 ## 功能
 
 - 支持多种分布式通信，提供统一的接口
-    - ros
+    - ros2
     - zeromq
 - 支持pub/sub模式模式
 - 支持多线程处理订阅的消息
@@ -13,7 +13,7 @@
 - 支持自定义参数及指定类型
 - 支持一些处理选项
     - 每隔几帧处理一次
-- 通过XML/Json语言定义节点信息
+- 通过Json语言定义节点信息
 - 支持订阅多个topic的消息
     - 支持并行处理多个Topic的消息
 - 支持统计节点信息和资源占用信息
@@ -40,20 +40,15 @@ import sys
 import numpy as np
 from typing import Union
 
-from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
-
-
-# 定义返回参数的数据类型
-@RTManager.register()
-class Node1ReturnPayload(FirstPayload):
-    raw: Union[np.ndarray, str] 
+from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, CoralIntNdarray
 
 
 # 定义入参的数据类型
 @PTManager.register()
 class Node1ParamsModel(ParamsModel):
-    model: str
-    run: dict
+    weight_fp: str = 'weight_fp.pt' 
+    width: int = 1080
+    height: int = 1280
 
 
 class Node1(CoralNode):
@@ -67,10 +62,9 @@ class Node1(CoralNode):
         blue_image[:] = (255, 0, 0)  # BGR格式
         context.update({'init': 'node1', 'raw': blue_image})
 
-
-    def sender(self, payload: dict, context: dict) -> Node1ReturnPayload:
+    def sender(self, payload: dict, context: dict) -> FirstPayload:
         "节点发送逻辑，return的内容会附加到RawImage消息类型中发送"
-        return {'raw': context['raw']}
+        return FirstPayload(raw=context['raw'])
 ```
 
 
@@ -78,30 +72,18 @@ class Node1(CoralNode):
 {
     "node_id": "node1",
     "meta": {
-        "sender": { 
-                "topic": "/topic1",
-                "params": {
-                    "socket_sub_port": 5759,
-                    "socket_pub_port": 5758
-                }
-            }
+        "sender": {
+            "node_id": "node1"
+        }
     },
     "generic": {
         "enable_metrics": true,
-        "metrics_sender": {
-            "raw_type": "Metrics",
-            "topic": "/node1_metrics",
-            "params": {
-                "socket_sub_port": 5859,
-                "socket_pub_port": 5858
-            }
-        }
+        "count": 5
     },
     "params": {
-        "model": "model_path",
-        "run": {
-            "width": 100
-        }
+        "weight_fp": "model_path",
+        "width": 100,
+        "height": 200
     }
 }
 ```
@@ -115,3 +97,5 @@ class Node1(CoralNode):
 1. zeromq pub/sub传输的速率如何？
 
 与传输的的消息大小有关，模拟测试（640，640，3）的图片向量PUB速率在传输 120帧/s， SUB的速率在65帧/s。这种情况下就会存在比较大的延迟
+
+- 可以通过多线程模式来加速处理
