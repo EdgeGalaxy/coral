@@ -6,7 +6,7 @@ import queue
 import requests
 import multiprocessing
 from urllib.parse import urljoin
-from typing import Dict, List, Any, NamedTuple, get_args
+from typing import Callable, Dict, List, Any, NamedTuple, get_args
 from loguru import logger
 from threading import Thread
 from collections import defaultdict, deque
@@ -57,7 +57,6 @@ class CoralNode(MiddlewareCommunicator):
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
         self._process_cls = self.__process_cls()
-        self.__init_sender(self.meta.sender)
         self.receivers = self.__init_receivers(self.meta.receivers)
         # run time
         self.run_time = time.time()
@@ -183,7 +182,7 @@ class CoralNode(MiddlewareCommunicator):
         """
         return Thread
 
-    def __init_sender(self, meta: SenderModel):
+    def __init_sender(self, meta: SenderModel, sender_func: Callable = None):
         """
         Initialize the sender for the given SenderModel object.
 
@@ -196,10 +195,13 @@ class CoralNode(MiddlewareCommunicator):
         Raises:
             None
         """
+        func = self.__sender if not sender_func else sender_func
+
         if meta is None:
             logger.warning(f"{self.__class__.__name__} sender is None!")
-            return
-        self.__sender = MiddlewareCommunicator.register(
+            return func
+
+        func = MiddlewareCommunicator.register(
             meta.data_type,
             meta.mware,
             meta.cls_name,
@@ -211,8 +213,9 @@ class CoralNode(MiddlewareCommunicator):
             proxy_broker_spawn="thread",
             pubsub_monitor_listener_spawn="thread",
             **meta.params,
-        )(self.__sender)
-        self.activate_communication(self.__sender, mode=self.mode.sender)
+        )(func)
+        self.activate_communication(func, mode=self.mode.sender)
+        return func
 
     def __init_receivers(self, metas: List[ReceiverModel]):
         """
@@ -232,11 +235,11 @@ class CoralNode(MiddlewareCommunicator):
             [<function __lambda_recevier_0 at 0x7f0e8c672160>, <function __lambda_recevier_1 at 0x7f0e8c672280>]
         """
         receivers = []
-        default_func = self.__receiver_wrapper(
+        default_func = self.__pubsub_func_wrapper(
             f"__lambda_recevier_{0}", lambda x: (DEFAULT_NO_RECEVIER_MSG,)
         )
         for idx, meta in enumerate(metas):
-            func = self.__receiver_wrapper(
+            func = self.__pubsub_func_wrapper(
                 f"__lambda_recevier_{idx}", lambda x: (DEFAULT_NO_RECEVIER_MSG,)
             )
             receiver = MiddlewareCommunicator.register(
@@ -362,7 +365,7 @@ class CoralNode(MiddlewareCommunicator):
         logger.info(f"{self.__class__.__name__} init context: {context}")
         return context
 
-    def __receiver_wrapper(self, name: str, func: type):
+    def __pubsub_func_wrapper(self, name: str, func: type):
         """
         A wrapper function that takes in a name and a function object and returns a new function that calls the input function with the given arguments.
 
@@ -381,7 +384,7 @@ class CoralNode(MiddlewareCommunicator):
         wrapper.__qualname__ = name
         return wrapper
 
-    def __run(self):
+    def __run(self, sender_func: object):
         """
         Runs the function indefinitely, continuously checking for payloads in the queue.
 
@@ -402,7 +405,7 @@ class CoralNode(MiddlewareCommunicator):
 
             if payload is None:
                 continue
-            self.__sender(self, payload=payload, context=context)
+            sender_func(self, payload=payload, context=context)
 
     def __on_payload_callback(self, payload: RawPayload, context: Dict = {}):
         """
@@ -482,8 +485,11 @@ class CoralNode(MiddlewareCommunicator):
         """
         # 启动后台处理程序
         for idx in range(self.process.count):
+            # 实例化sender func
+            sender_func = self.__pubsub_func_wrapper(name=f"__lambda_sender_{idx}", func=self.__sender)
+            func = self.__init_sender(self.meta.sender, sender_func)
             self._process_cls(
-                target=self.__run, name=f"coral_process_{idx}"
+                target=self.__run, args=(func,), name=f"coral_process_{idx}"
             ).start()
 
     def _record_and_just_is_pass_frame(self, recv_node_id):
@@ -529,6 +535,9 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
+        # 单实例init sender，默认注册self.__sender
+        self.__sender = self.__init_sender(self.meta.sender)
+        print('__sender', self.__sender)
         context = self.__init()
         while True:
             for receiver in self.receivers:

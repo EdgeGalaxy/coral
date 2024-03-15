@@ -5,8 +5,5 @@
             "node_id": "node1"
         }
     },
-    "generic": {
-        "enable_metrics": false
-    },
     "params": {}
 }

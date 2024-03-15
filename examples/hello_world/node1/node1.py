@@ -40,7 +40,7 @@ class Node1(CoralNode):
 
 
     def sender(self, payload: dict, context: dict):
-        # time.sleep(0.01)
+        time.sleep(0.01)
         return FirstPayload(raw=context['raw'])
 
 
