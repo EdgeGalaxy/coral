@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, computed_field, validator
 
 from .payload import (
     DTManager,
-    ParamsModel,
+    BaseParamsModel,
     RawPayload,
     PTManager,
     ReturnPayload,
@@ -14,20 +14,47 @@ from .payload import (
 )
 
 
+class ProtocalType:
+    """
+    通信协议类型
+    """
+    PUBSUB = "pubsub"
+    REPLY = "reply"
+
+
+class SenderMode:
+    """
+    发送者模式值
+    """
+    PUBLISH = "publish"
+    REPLY = "reply"
+
+
+class ReceiverMode:
+    """
+    接收者模式值
+    """
+    LISTEN = "listen"
+    REQUEST = "request"
+
+
 class ModeModel(BaseModel):
-    sender: str
+    """
+    发送/接收者模式
+    """
+    sender: str 
     receiver: str
 
 
-PUBSUB = "pubsub"
-REPLY = "reply"
-RECEIVER_SINGLE_MODE = "single"
-RECEIVER_CLUSTER_MODE = "cluster"
-PUBSUM_MODE = ModeModel(sender="publish", receiver="listen")
-REPLY_MODE = ModeModel(sender="reply", receiver="request")
+# 定义通信模式
+PUBSUM_MODE = ModeModel(sender=SenderMode.PUBLISH, receiver=ReceiverMode.LISTEN)
+REPLY_MODE = ModeModel(sender=SenderMode.REPLY, receiver=ReceiverMode.REQUEST)
 
 
 class PubSubBaseModel(CoralBaseModel):
+    """
+    节点通信通用格式
+    """
     node_id: str = Field(frozen=True)
     raw_type: str = Field(frozen=True, default="RawImage")
     mware: str = Field(frozen=True, default="zeromq")
@@ -102,33 +129,45 @@ class SenderModel(PubSubBaseModel):
 
 
 class MetaModel(CoralBaseModel):
-    mode: str = Field(frozen=True, default=PUBSUB)
+    """
+    sender & receiver 通信类
+    """
+    mode: str = Field(frozen=True, default=ProtocalType.PUBSUB)
     receivers: List[ReceiverModel] = Field(frozen=True, default=[])
     sender: SenderModel = Field(frozen=True, default=None)
 
     @computed_field
     @cached_property
     def _mode(self) -> ModeModel:
-        if self.mode == PUBSUB:
+        if self.mode == ProtocalType.PUBSUB:
             return PUBSUM_MODE
-        elif self.mode == REPLY:
+        elif self.mode == ProtocalType.REPLY:
             return REPLY_MODE
         raise ValueError(f"Unsupported mode: {self.mode}")
 
 
 class ProcessModel(CoralBaseModel):
+    """
+    系统参数设定
+    """
     max_qsize: int = Field(frozen=True, default=180)
     count: int = Field(frozen=True, default=3)
     enable_parallel: bool = Field(frozen=True, default=False)
 
 
 class GenericParamsModel(CoralBaseModel):
+    """
+    业务通用参数
+    """
     skip_frame: int = Field(frozen=True, default=0, description="每隔几帧处理一次")
     enable_metrics: bool = Field(frozen=True, default=True, description="是否开启服务监控")
     metrics_interval: int = Field(frozen=True, default=10, description="监控间隔")
 
 
 class ConfigModel(CoralBaseModel):
+    """
+    节点通用配置类
+    """
     pipeline_id: str = Field(frozen=True, default="default_pipeline")
     node_id: str = Field(frozen=True)
     process: ProcessModel = Field(frozen=True, default=ProcessModel())
@@ -142,18 +181,18 @@ class ConfigModel(CoralBaseModel):
             return v
         if PTManager.default_type() is None:
             raise ValueError(
-                f"Not found ParamsModel decorator by @PTManager.registry, but exist params field"
+                f"未发现被 @PTManager.register() 装饰器包装的 ParamsModel 类"
             )
         if len(PTManager.registry.keys()) > 1:
             raise ValueError(
-                f"More than one params type: {list(PTManager.registry.keys())}"
+                f"存在多个 @PTManager.register() 装饰的 ParamsModel 类: {list(PTManager.registry.keys())}"
             )
         pt_cls = PTManager.registry[PTManager.default_type()]
         return pt_cls(**v)
 
     @computed_field
     @cached_property
-    def _params_cls(self) -> ParamsModel:
+    def _params_cls(self) -> BaseParamsModel:
         if PTManager.default_type() is None:
             return None
         return PTManager.registry[PTManager.default_type()]

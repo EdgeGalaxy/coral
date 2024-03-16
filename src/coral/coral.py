@@ -1,17 +1,16 @@
 import os
 import time
 import json
-import uuid
-import queue
 import requests
-import multiprocessing
+from enum import Enum
 from urllib.parse import urljoin
-from typing import Callable, Dict, List, Any, NamedTuple, get_args
-from loguru import logger
+from typing import Callable, Dict, List, Any, Union
 from threading import Thread
 from collections import defaultdict, deque
 
+from loguru import logger
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
+
 
 from .constants import DEFAULT_NO_RECEVIER_MSG
 from .parse import CoralParser
@@ -22,7 +21,7 @@ from .exception import (
 )
 from .types import (
     MetaModel,
-    ParamsModel,
+    BaseParamsModel,
     SenderModel,
     ReceiverModel,
     ModeModel,
@@ -30,6 +29,8 @@ from .types import (
     RawPayload,
     FirstPayload,
     BaseInterfacePayload,
+    InterfaceMode,
+    ReturnPayload
 )
 
 
@@ -38,21 +39,26 @@ CORAL_NODE_CONFIG_PATH = os.environ.get("CORAL_NODE_CONFIG_PATH")
 # 节点配置Bas64环境变量
 CORAL_NODE_BASE64_DATA = os.environ.get("CORAL_NODE_BASE64_DATA")
 # 节点类型
-NODE_TYPES = ["DataProducerNode", "RecognitionNode", "BusinessNode", "MediaProcessNode"]
+class NodeType(Enum):
+    input = "input"
+    interface = "interface"
+    rule = "rule"
+    trigger = "trigger"
+    output = "output"
+
+NODE_TYPES = [m for m in NodeType]
 
 
 class CoralNode(MiddlewareCommunicator):
 
-    node_type = None
-    node_name = None
-    node_desc = None
+    node_type: NodeType = None
+    node_name: str = None
+    node_desc: str = None
 
-    config_fp = 'config.json'
+    config_fp: str = 'config.json'
 
     def __init__(self):
-        assert self.node_type in NODE_TYPES, 'node_type must in {}'.format(NODE_TYPES)
-        assert self.node_name is not None, 'node_name must not be None!'
-        assert self.node_desc is not None, 'node_desc must not be None!'
+        self.check_required_config()
         config_path, file_type = self.get_config()
         self.__config = CoralParser.parse(config_path, file_type)
         self._queue = self.__queue()
@@ -79,6 +85,12 @@ class CoralNode(MiddlewareCommunicator):
         self.receiver_frames_count = defaultdict(int)
     
     @classmethod
+    def check_required_config(cls):
+        assert cls.node_type in NODE_TYPES, '[ node_type ] 必须属于以下参数值 {}'.format(NODE_TYPES)
+        assert cls.node_name is not None, '[ node_name ] 不能为None'
+        assert cls.node_desc is not None, '[ node_desc ] 不能为None'
+    
+    @classmethod
     def get_config(cls):
         if CORAL_NODE_BASE64_DATA:
             logger.info(f'use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}')
@@ -91,10 +103,10 @@ class CoralNode(MiddlewareCommunicator):
     
     @classmethod
     def node_register(cls):
-        assert cls.node_type in NODE_TYPES, 'node type must in {}'.format(NODE_TYPES)
+        cls.check_required_config()
         config_path, file_type = cls.get_config()
         config = CoralParser.parse(config_path, file_type)
-        schema = config.parse_json_schema(cls.node_name, cls.node_desc, cls.node_type)
+        schema = config.parse_json_schema(cls.node_name, cls.node_desc, cls.node_type.value)
         cls.publish_node_schema(schema)
 
     @classmethod
@@ -137,7 +149,7 @@ class CoralNode(MiddlewareCommunicator):
         return self.config.meta
 
     @property
-    def params(self) -> ParamsModel:
+    def params(self) -> BaseParamsModel:
         return self.config.params
 
     @property
@@ -263,6 +275,54 @@ class CoralNode(MiddlewareCommunicator):
             logger.warning(f"no receiver, use default receiver!!!")
             receivers.append(default_func)
         return receivers
+    
+    def fill_node_data_router(self, payload: RawPayload, sender_payload: Union[FirstPayload, BaseInterfacePayload, ReturnPayload]):
+        if payload.raw is None:
+            self._input_node_data_fill(payload, sender_payload)
+        elif isinstance(sender_payload, BaseInterfacePayload):
+            self._interface_node_data_fill(payload, sender_payload)
+        elif isinstance(sender_payload, ReturnPayload):
+            self._meta_node_data_fill(payload, sender_payload)
+        else:
+            raise TypeError(
+                f"节点类型为 {type(sender_payload)}, 应该属于以下类的子类 [ {FirstPayload.__name__} {BaseInterfacePayload.__name__} {ReturnPayload.__name__} ] !!!!"
+            )
+
+    def _input_node_data_fill(self, payload: RawPayload, sender_payload: FirstPayload):
+        payload.raw = sender_payload.raw
+    
+    def _interface_node_data_fill(self, payload: RawPayload, sender_payload: BaseInterfacePayload):
+        define_objects_cls = payload.__annotations__['objects']
+        set_objects_cls = sender_payload.__annotations__['objects']
+        if set_objects_cls != define_objects_cls:
+            raise TypeError(
+                f"定义的objects类型为: [ {define_objects_cls} 而输入的objects类型为: {set_objects_cls} ]"
+            )
+        if sender_payload.mode == InterfaceMode.APPEND:
+            if payload.objects is None:
+                payload.objects = sender_payload.objects
+            else:
+                payload.objects.append(sender_payload.objects)
+        elif sender_payload.mode == InterfaceMode.OVERWRITE:
+            payload.objects = sender_payload.objects
+        else:
+            raise TypeError(
+                f"推理节点支持的模式: [ {InterfaceMode.APPEND} | {InterfaceMode.OVERWRITE} ]"
+            )
+    
+    def _meta_node_data_fill(self, payload: RawPayload, sender_payload: ReturnPayload):
+        payload.metas = payload.metas or {}
+        _node_id = f'node.{self.config.node_id}'
+        if _node_id in payload.metas:
+            raise ValueError(
+                f"节点: {self.config.node_id} 已经存在于payload.metas中!"
+            )
+        payload.metas.update({_node_id: sender_payload})
+    
+    def _record_node_cost(self, start_time: float):
+        cost_time = time.perf_counter() - start_time
+        self.metrics.cost_process_frames(cost_time)
+        self.metrics.count_process_frames()
 
     def __sender(self, *args, **kwargs):
         """
@@ -276,77 +336,30 @@ class CoralNode(MiddlewareCommunicator):
             Any: The data returned by the sender method.
         """
         try:
-            st = time.time()
+            start_time = time.time()
             payload: RawPayload = kwargs.pop("payload", {})
             context: Dict = kwargs.pop("context", {})
             sender_payload = self.sender(payload, context)
             # 不存在sender的情况，直接返回
             if self.meta.sender is None:
                 # 记录节点处理耗时&数量
-                cost_time = time.perf_counter() - st
-                self.metrics.cost_process_frames(cost_time)
-                self.metrics.count_process_frames()
+                self._record_node_cost(start_time)
                 logger.info(f"{self.config.node_id} no sender, return immediately!")
-                return sender_payload
-            # 尝试根据返回的dict初始化为return_cls的类型
-            if isinstance(sender_payload, dict):
-                try:
-                    sender_payload = self.meta.sender.return_cls(**sender_payload)
-                except Exception as e:
-                    logger.exception(
-                        f"not init by return type: {self.meta.sender.return_cls.__name__}, error is {e}"
-                    )
-                    raise e
+                return (sender_payload, )
+            
+            self.fill_node_data_router(payload, sender_payload)
 
-            # 首节点，类型必须为FirstPayload, 需要包含raw字段
-            if payload.raw is None:
-                if not isinstance(sender_payload, FirstPayload):
-                    raise TypeError(
-                        f"sender payload type error: {type(sender_payload)}, first payload is subclass of [ {FirstPayload.__name__} ]"
-                    )
-                # 记录原始值
-                payload.raw = sender_payload.raw
-            else:
-                # ObjectsModel类型
-                if isinstance(sender_payload, BaseInterfacePayload):
-                    objects_cls = payload.__annotations__['objects']
-                    if type(sender_payload) in get_args(objects_cls):
-                        payload.objects = sender_payload
-                    else:
-                        raise TypeError(
-                            f"sender payload type is: {type(sender_payload)}, need [ {type(payload.objects)} ]"
-                        )
-                # 结果记录到Meta中
-                elif isinstance(sender_payload, self.meta.sender.return_cls):
-                    payload.metas = payload.metas or {}
-                    _node_id = f'node.{self.config.node_id}'
-                    if _node_id in payload.metas:
-                        raise ValueError(
-                            f"node_id: {self.config.node_id} already exist in payload.metas"
-                        )
-                    payload.metas.update({_node_id: sender_payload})
-                else:
-                    raise TypeError(
-                        f"sender payload type error: {type(sender_payload)}, should is [ {self.meta.sender.return_cls.__name__} !!!!"
-                    )
-
-                payload.node_id = "$".join([payload.node_id, self.config.node_id])
-
-            # node整体耗时：从接收到处理
-            payload.nodes_cost += time.time() - payload.timestamp
-            # 更新发送时间
-            payload.timestamp = time.time()
-            # 记录节点处理耗时&数量
-            cost_time = time.time() - st
-            self.metrics.cost_process_frames(cost_time)
-            self.metrics.count_process_frames()
-
-            # 更新发送节点的node_id
             # 记录发送的时间
             crt_time = time.time()
             self.sender_times.append(crt_time)
+            # 记录节点处理耗时&数量
+            self._record_node_cost(start_time)
+
+            # node整体耗时：从接收到处理
+            payload.nodes_cost += crt_time - payload.timestamp
+            # 更新发送时间
+            payload.timestamp = crt_time
             data = payload.model_dump()
-            logger.debug(f"{payload.node_id} send data cost time: {cost_time} ")
             return (data,)
         except CoralSenderIgnoreException as e:
             return (None,)
@@ -362,7 +375,7 @@ class CoralNode(MiddlewareCommunicator):
         """
         context = {}
         self.init(context)
-        logger.info(f"{self.__class__.__name__} init context: {context}")
+        logger.info(f"{self.config.node_id} init context: {context}")
         return context
 
     def __pubsub_func_wrapper(self, name: str, func: type):
@@ -418,9 +431,9 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
-        is_pass = self._record_and_just_is_pass_frame(recv_node_id=payload.node_id)
+        is_pass = self._record_and_just_is_pass_frame(recv_node_id=payload.source_id)
         if is_pass:
-            logger.debug(f"{payload.node_id} frame is passed!")
+            logger.debug(f"{payload.source_id} frame is passed!")
             return
 
         # 处理对应的帧
@@ -458,7 +471,7 @@ class CoralNode(MiddlewareCommunicator):
         payload = _payload[0]
 
         if payload == DEFAULT_NO_RECEVIER_MSG:
-            raw_payload = RawPayload(node_id=self.config.node_id)
+            raw_payload = RawPayload(source_id=self.config.node_id)
         else:
             receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(
                 receiver.__qualname__
@@ -537,7 +550,6 @@ class CoralNode(MiddlewareCommunicator):
         """
         # 单实例init sender，默认注册self.__sender
         self.__sender = self.__init_sender(self.meta.sender)
-        print('__sender', self.__sender)
         context = self.__init()
         while True:
             for receiver in self.receivers:

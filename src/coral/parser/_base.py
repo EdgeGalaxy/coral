@@ -11,7 +11,7 @@ from ..types import (
     MetaModel,
     ModeModel,
     CoralBaseModel,
-    ParamsModel,
+    BaseParamsModel,
     GenericParamsModel,
     ProcessModel,
 )
@@ -160,5 +160,5 @@ class BaseParse:
         return self.data.meta.mode
 
     @property
-    def params(self) -> ParamsModel:
+    def params(self) -> BaseParamsModel:
         return self.data.params

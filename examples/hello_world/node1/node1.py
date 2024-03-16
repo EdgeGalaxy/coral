@@ -8,7 +8,7 @@ from pydantic import BaseModel
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager
+from coral import CoralNode, BaseParamsModel, FirstPayload, NodeType, PTManager
 
 
 class Point(BaseModel):
@@ -19,7 +19,7 @@ class Point(BaseModel):
 
 
 @PTManager.register()
-class Node1ParamsModel(ParamsModel):
+class Node1ParamsModel(BaseParamsModel):
     width: int = 1080
     height: int = 1280
     source: str = '/dev/video0'
@@ -31,13 +31,12 @@ class Node1(CoralNode):
     node_name = '模拟视频流节点'
     node_desc = 'opencv随机生成视频流传输，供测试'
     config_fp = 'config.json'
-    node_type = 'DataProducerNode'
+    node_type = NodeType.input
 
     def init(self, context: dict):
         blue_image = np.zeros((640, 640, 3), np.uint8)
         blue_image[:] = (255, 0, 0)  # BGR格式
         context.update({'init': 'node1', 'raw': blue_image})
-
 
     def sender(self, payload: dict, context: dict):
         time.sleep(0.01)

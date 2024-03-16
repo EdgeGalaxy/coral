@@ -2,7 +2,7 @@
     "node_id": "node2",
     "process": {
         "enable_parallel": true,
-        "count": 10
+        "count": 5
     },
     "meta": {
         "receivers": [

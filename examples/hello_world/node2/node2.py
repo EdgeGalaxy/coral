@@ -2,14 +2,15 @@ import os
 import sys
 import time
 from typing import List
+
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, ParamsModel, PTManager, ObjectsPayload
+from coral import CoralNode, BaseParamsModel, PTManager, ObjectsPayload, InterfaceMode, NodeType, ObjectPayload
 
 
 @PTManager.register()
-class Node2ParamsModel(ParamsModel):
+class Node2ParamsModel(BaseParamsModel):
     threshold: float = 0.3
     canvas: List[int] = [4, 4, 4, 4]
     max_scores: float = 0.98
@@ -21,7 +22,7 @@ class Node2(CoralNode):
     node_name = 'Yolo节点'
     node_desc = '模型推理节点'
     config_fp = 'config.json'
-    node_type = 'RecognitionNode'
+    node_type = NodeType.interface
 
     def init(self, context: dict):
         print("Hello World")
@@ -30,13 +31,13 @@ class Node2(CoralNode):
 
     def sender(self, payload: dict, context: dict) -> ObjectsPayload:
         time.sleep(0.1)
-        objects = {
-            "class_ids": [1],
-            "labels": ["person"],
-            "probs": [0.9],
-            "boxes": [[1, 2, 3, 4]]
-        }
-        return ObjectsPayload(**objects)
+        objects = [ObjectPayload(**{
+            "class_id": 1,
+            "label": "person",
+            "prob": 0.9,
+            "box": {'x1': 0, 'y1': 0, 'x2': 0, 'y2': 0},
+        })]
+        return ObjectsPayload(objects=objects, mode=InterfaceMode.APPEND)
 
 
 if __name__ == '__main__':
