@@ -98,21 +98,29 @@ class BaseParse:
                         _properties, defs, defaults.get(key, {})
                     )
                 else:
+                    if 'anyOf' in value:
+                        type = value['anyOf'][0]['type']
+                    elif '$ref' in value:
+                        ref_key = value['$ref'].split("/")[-1]
+                        type = defs[ref_key]['type']
+                    else:
+                        type = value["type"]
+
                     iter_result[key] = {
-                        "type": value["type"],
+                        "type": type,
                         "title": value.get("title", key),
                         "default": defaults.get(key),
                         "description": value.get("description", ""),
                     }
             return iter_result
 
-        config_schema = ConfigSchemaModel.model_json_schema()
+        config_schema = ConfigSchemaModel.model_json_schema(mode='serialization')
         defaults = ConfigSchemaModel().model_dump()
         configs = iter_schema_key_type(config_schema['properties'], config_schema['$defs'], defaults)
         result.update({'configs': configs, 'config_schema': config_schema})
 
         if _return_cls is not None:
-            return_schema = _return_cls.model_json_schema()
+            return_schema = _return_cls.model_json_schema(mode='serialization')
             returns = iter_schema_key_type(return_schema['properties'], return_schema.get('$defs', {}), {})
             if returns:
                 result.update({"returns": returns})

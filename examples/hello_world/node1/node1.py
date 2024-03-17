@@ -8,7 +8,7 @@ from pydantic import BaseModel
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, BaseParamsModel, FirstPayload, NodeType, PTManager
+from coral import CoralNode, BaseParamsModel, FirstPayload, NodeType, PTManager, RTManager
 
 
 class Point(BaseModel):
@@ -24,6 +24,10 @@ class Node1ParamsModel(BaseParamsModel):
     height: int = 1280
     source: str = '/dev/video0'
     items: Point = Point()
+
+
+# 手动注册FirstPayload作为returnPayload
+RTManager.register()(FirstPayload)
 
 
 class Node1(CoralNode):

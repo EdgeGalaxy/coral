@@ -95,7 +95,7 @@ class ObjectPayload(BaseInterfaceItemPayload):
     objects: Optional[Union[List['ObjectPayload'], NoneType]] = None
 
 
-class FirstPayload(ReturnPayloadWithTS):
+class FirstPayload(ReturnPayload):
     """
     输入节点返回类
     """

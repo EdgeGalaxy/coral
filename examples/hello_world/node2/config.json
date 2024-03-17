@@ -12,7 +12,8 @@
         ],
         "sender": 
             {
-                "node_id": "node2"
+                "node_id": "node2",
+                "raw_type": "RawImage"
             }
     },
     "generic": {

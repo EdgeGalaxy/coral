@@ -6,7 +6,7 @@ from typing import List
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))
 
-from coral import CoralNode, BaseParamsModel, PTManager, ObjectsPayload, InterfaceMode, NodeType, ObjectPayload
+from coral import CoralNode, BaseParamsModel, PTManager, RTManager, ObjectsPayload, InterfaceMode, NodeType, ObjectPayload
 
 
 @PTManager.register()
@@ -15,6 +15,10 @@ class Node2ParamsModel(BaseParamsModel):
     canvas: List[int] = [4, 4, 4, 4]
     max_scores: float = 0.98
     
+
+# 手动注册ObjectsPayload作为returnPayload
+RTManager.register()(ObjectsPayload)
+
 
 
 class Node2(CoralNode):
