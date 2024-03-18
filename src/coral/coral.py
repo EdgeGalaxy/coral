@@ -77,10 +77,6 @@ class CoralNode(MiddlewareCommunicator):
             node_id=self.config.node_id,
             enable=self.config.generic_params.enable_metrics,
         )
-        self.metrics.register_sender(
-            meta=SenderModel(node_id=f"{self.config.node_id}_Metrics", raw_type="Metrics"),
-            interval=self.config.generic_params.metrics_interval,
-        )
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
     
@@ -320,7 +316,7 @@ class CoralNode(MiddlewareCommunicator):
         payload.metas.update({_node_id: sender_payload})
     
     def _record_node_cost(self, start_time: float):
-        cost_time = time.perf_counter() - start_time
+        cost_time = time.time() - start_time
         self.metrics.cost_process_frames(cost_time)
         self.metrics.count_process_frames()
 
@@ -442,7 +438,7 @@ class CoralNode(MiddlewareCommunicator):
                 logger.warning(
                     f"{self.__class__.__name__} queue is full! overwrite pre payload"
                 )
-                self.metrics.count_drop_frames(action="full")
+                self.metrics.count_full_drop_frames()
 
             self._queue.append(payload)
         else:
@@ -481,7 +477,7 @@ class CoralNode(MiddlewareCommunicator):
             payload_cls: RawPayload = receiver_func_kwargs["payload_cls"]
             raw_payload = payload_cls(**payload)
         # 从上一个节点发送到该节点接受耗时
-        self.metrics.cost_pendding_frames(time.perf_counter() - raw_payload.timestamp)
+        self.metrics.cost_pendding_frames(time.time() - raw_payload.timestamp)
         return raw_payload
 
     def __run_background_senders(self):
@@ -523,7 +519,7 @@ class CoralNode(MiddlewareCommunicator):
             if recv_frame_count != self.skip_frame_count:
                 is_pass = True
                 self.receiver_frames_count[recv_node_id] = recv_frame_count + 1
-                self.metrics.count_drop_frames(action="pass")
+                self.metrics.count_skip_drop_frames()
             else:
                 # 重置重新计算
                 self.receiver_frames_count[recv_node_id] = 0

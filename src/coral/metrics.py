@@ -1,15 +1,12 @@
-from functools import partial
-import time
-import schedule
-from typing import Union
-from threading import Thread
+import os
+import json
+from typing import Union, Dict
 
+import paho.mqtt.client as mqtt
 from loguru import logger
-from wrapyfi.connect.wrapper import MiddlewareCommunicator
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
-from prometheus_client.metrics import MetricWrapperBase
 
-from .types import SenderModel
+
+COMMON_CONFIG_FP = os.environ.get("CORAL_COMMON_CONFIG_PATH", f"{os.environ['HOME']}/.coral/common-config.json")
 
 
 class CoralNodeMetrics:
@@ -24,136 +21,86 @@ class CoralNodeMetrics:
         self.enable = enable
         self.pipeline_id = pipeline_id
         self.node_id = node_id
-        self.labels = list(self.default_labels.keys())
-        self.__count_process_frames = self._count_process_frames()
-        self.__count_drop_frames = self._count_drop_frames()
-        self.__cost_process_frames = self._cost_process_frames()
-        self.__cost_pendding_frames = self._cost_pendding_frames()
-
-    @property
-    def default_labels(self):
-        return {
-            "pipeline_id": self.pipeline_id,
-            "node_id": self.node_id,
-        }
-
-    def register_sender(self, meta: SenderModel, interval=5):
-        if not self.enable:
-            logger.warning(f"Metrics disabled! not register any sender")
+        if not enable:
             return
-        if meta is None:
-            logger.warning(f"sender is None! not register any sender")
-            return
-
-        sender_obj = CoralWrapyfiMetricsSender(meta)
-
-        def run_schedule():
-            do_func = partial(sender_obj._sender, sender_obj)
-            schedule.every(interval).seconds.do(do_func)
-
-            while True:
-                schedule.run_pending()
-                time.sleep(interval / 2)
-
-        Thread(target=run_schedule).start()
-        logger.info(f"background register sender: {meta}")
+        self.cfg = self.get_common_config()
+        self.organization_id = self.cfg.get('organization_id', 'coral-user')
+        self.gateway_id = self.cfg.get('gateway_id', 'coral-gateway')
+        self.topic_prefix = self._topic_prefix()
+        self.mqtt_client = init_mqtt(self.cfg.get('mqtt', {}))
+    
+    def get_common_config(self) -> Dict:
+        with open(COMMON_CONFIG_FP, 'r') as f:
+            return json.load(f)
+    
+    def _topic_prefix(self):
+        prefix = f"/organization/{self.organization_id}/gateway/{self.gateway_id}/pipeline/{self.pipeline_id}/node/{self.node_id}"
+        logger.info(f"node: {self.node_id} topic prefix: {prefix}")
+        return prefix
+    
+    def publish(self, topic: str, topic_type: str, message: dict):
+        mqtt_topic = f'{self.topic_prefix}/{topic}/{topic_type}'
+        return self.mqtt_client.publish(mqtt_topic, json.dumps(message))
 
     def count_process_frames(self, value: int = 1):
-        return self.set(self.__count_process_frames, value)
+        return self.system_set('process_frames_count', value)
 
-    def count_drop_frames(self, action: str = "active", value: int = 1):
-        return self.set(
-            self.__count_drop_frames, value, extra_labels={"action": action}
-        )
+    def count_full_drop_frames(self, value: int = 1):
+        return self.system_set('drop_frames_count', value)
+
+    def count_skip_drop_frames(self, value: int = 1):
+        return self.system_set('skip_frames_count', value)
 
     def cost_process_frames(self, value: float):
-        return self.set(self.__cost_process_frames, value)
+        return self.system_set('process_frames_cost', round(value, 4))
 
     def cost_pendding_frames(self, value: float):
-        return self.set(self.__cost_pendding_frames, value)
+        return self.system_set('pendding_frames_cost', round(value, 4))
 
-    def set(
+    def system_set(
         self,
-        metric_obj: MetricWrapperBase,
+        topic: str,
         value: Union[int, float],
-        extra_labels: dict = None,
     ):
         if not self.enable:
             return
-        extra_labels = extra_labels or {}
-        labels = {**self.default_labels, **extra_labels}
-        if isinstance(metric_obj, Counter):
-            metric_obj.labels(**labels).inc(value)
-        elif isinstance(metric_obj, Histogram):
-            metric_obj.labels(**labels).observe(value)
-        elif isinstance(metric_obj, Gauge):
-            metric_obj.labels(**labels).set(value)
-        else:
-            raise TypeError(f"Unsupported type: {type(metric_obj)}")
-
-    def _count_process_frames(self) -> Counter:
-        return Counter(
-            "coral__pipeline__node__process_frames_count", "节点处理的数据帧", self.labels
-        )
-
-    def _count_drop_frames(self) -> Counter:
-        labels = ["action", *self.labels]
-        return Counter("coral__pipeline__node__drop_frames", "节点主动｜被动丢弃的数据帧", labels)
-
-    def _cost_process_frames(self) -> Histogram:
-        return Histogram(
-            "coral__pipeline__node__process_frames_cost", "节点单次处理的耗时", self.labels
-        )
-
-    def _cost_pendding_frames(self) -> Histogram:
-        return Histogram(
-            "coral__pipeline__node__pendding_frames_cost", "节点数据帧从发送到接收的时间", self.labels
-        )
-
-
-class CoralWrapyfiMetricsSender(MiddlewareCommunicator):
-    def __init__(self, meta: SenderModel):
-        self.meta = meta
-        self.__init_sender(meta)
-
-    def __init_sender(self, meta: SenderModel):
-        """
-        Initialize the sender for the given SenderModel object.
-
-        Parameters:
-            meta (SenderModel): A list of SenderModel objects containing the required metadata for each sender.
-
-        Returns:
-            None
-
-        Raises:
-            None
-        """
-        if meta is None:
-            logger.warning(f"{self.__class__.__name__} sender is None!")
+        self.publish(topic, 'system', {"value": value})
+    
+    def business_set(
+        self,
+        topic: str,
+        value: Union[int, float],
+    ):
+        if not self.enable:
             return
-        self._sender = MiddlewareCommunicator.register(
-            meta.data_type,
-            meta.mware,
-            meta.cls_name,
-            meta.topic,
-            carrier=meta.carrier,
-            should_wait=meta.blocking,
-            proxy_broker_spawn="thread",
-            pubsub_monitor_listener_spawn="thread",
-            **meta.params,
-        )(self._sender)
-        self.activate_communication(self._sender, mode="publish")
+        self.publish(topic, 'business', {"value": value})
+        
 
-    def _sender(self, *args, **kwargs):
-        try:
-            data = self.sender(*args, **kwargs)
-            pub_data = {"metrics": data.decode()}
-        except Exception as e:
-            logger.info(f"topic {self.meta.topic} sender error: ", e)
+def init_mqtt(cfg: dict) -> mqtt.Client:
+    # 获取必要的配置
+    mqtt_broker = cfg.pop("broker")
+    mqtt_port = cfg.pop("port")
+    mqtt_username = cfg.pop("username", None)
+    mqtt_password = cfg.pop("password", None)
 
-        logger.debug(f"prometheus data: {pub_data}")
-        return (pub_data,)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="coral-node-mqtt")
+    if mqtt_username and mqtt_password:
+        client.username_pw_set(mqtt_username, mqtt_password)
 
-    def sender(self, *args, **kwargs):
-        return generate_latest()
+    # MQTT连接回调函数
+    def on_connect(*args, **kwargs):
+        if kwargs.get('rc', -1) == 0:
+            logger.info("Connected to MQTT Broker!")
+        else:
+            logger.error("Failed to connect, return code %d\n", kwargs.get('rc'))
+
+    # MQTT断开连接回调函数
+    def on_disconnect(*args, **kwargs):
+        logger.error("Disconnected from MQTT Broker!!")
+
+    # MQTT设置回调函数
+    client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
+    # 连接MQTT服务器
+    client.connect(host=mqtt_broker, port=mqtt_port, **cfg)
+    return client
