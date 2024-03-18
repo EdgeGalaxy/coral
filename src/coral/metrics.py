@@ -22,7 +22,12 @@ class CoralNodeMetrics:
         self.pipeline_id = pipeline_id
         self.node_id = node_id
         if not enable:
+            logger.warning(f'{node_id} not enable metrics!')
             return
+        if not os.path.exists(COMMON_CONFIG_FP):
+            logger.error(f'{pipeline_id} not found common config: {COMMON_CONFIG_FP}')
+            return
+
         self.cfg = self.get_common_config()
         self.organization_id = self.cfg.get('organization_id', 'coral-user')
         self.gateway_id = self.cfg.get('gateway_id', 'coral-gateway')
