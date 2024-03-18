@@ -16,8 +16,5 @@
                 "raw_type": "RawImage"
             }
     },
-    "generic": {
-        "enable_metrics": false
-    },
     "params": {}
 }

@@ -89,7 +89,7 @@ def init_mqtt(cfg: dict) -> mqtt.Client:
     mqtt_username = cfg.pop("username", None)
     mqtt_password = cfg.pop("password", None)
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="coral-node-mqtt")
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if mqtt_username and mqtt_password:
         client.username_pw_set(mqtt_username, mqtt_password)
 
