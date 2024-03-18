@@ -25,6 +25,7 @@ class CoralNodeMetrics:
             logger.warning(f'{node_id} not enable metrics!')
             return
         if not os.path.exists(COMMON_CONFIG_FP):
+            self.enable = False
             logger.error(f'{pipeline_id} not found common config: {COMMON_CONFIG_FP}')
             return
 
