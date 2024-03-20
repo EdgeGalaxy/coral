@@ -15,7 +15,8 @@ bg_tasks = BackgroundScheduler()
 
 
 class SharedMemoryIDManager(metaclass=SingletonOptimized):
-    def __init__(self, expire: int = 60):
+    def __init__(self, expire: int = 30):
+        # 默认 expire 秒在整个链路中要处理完, 否则会内存数据会被 expire * 3 秒后定时清除
         self._expire = expire
         self._memory_store = dict()
     
@@ -27,8 +28,8 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
         self.interval_flush(self._expire * 3)
     
     def attach(self, memory_id):
+        # attach memory时不更新 memory_store，因为memory的产生不一定是在当前节点
         memory_data = sa.attach(memory_id)
-        self._memory_store.setdefault(memory_id, time.time())
         logger.debug(f'attach shared memory: {memory_id}')
         return memory_data
 

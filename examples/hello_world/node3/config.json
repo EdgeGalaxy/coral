@@ -1,7 +1,7 @@
 {
     "node_id": "node3",
     "generic": {
-        "enable_shared_memory": false
+        "enable_shared_memory": true
     },
     "meta": {
         "receivers": [{
