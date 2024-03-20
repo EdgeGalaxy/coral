@@ -152,7 +152,7 @@ class BaseParse:
         return self.data.node_id
 
     @property
-    def generic_params(self):
+    def generic(self):
         return self.data.generic
 
     @property

@@ -11,7 +11,6 @@ from collections import defaultdict, deque
 from loguru import logger
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
 
-
 from .constants import DEFAULT_NO_RECEVIER_MSG
 from .parse import CoralParser
 from .parser import BaseParse
@@ -19,6 +18,7 @@ from .metrics import CoralNodeMetrics
 from .exception import (
     CoralSenderIgnoreException,
 )
+from .utils import generate_short_uid
 from .types import (
     MetaModel,
     BaseParamsModel,
@@ -30,7 +30,7 @@ from .types import (
     FirstPayload,
     BaseInterfacePayload,
     InterfaceMode,
-    ReturnPayload
+    ReturnPayload,
 )
 
 
@@ -75,7 +75,7 @@ class CoralNode(MiddlewareCommunicator):
         self.metrics = CoralNodeMetrics(
             pipeline_id=self.config.pipeline_id,
             node_id=self.config.node_id,
-            enable=self.config.generic_params.enable_metrics,
+            enable=self.config.generic.enable_metrics,
         )
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
@@ -130,7 +130,11 @@ class CoralNode(MiddlewareCommunicator):
         
     @property
     def skip_frame_count(self):
-        return self.config.generic_params.skip_frame
+        return self.config.generic.skip_frame
+    
+    @property
+    def enable_shared_memory(self):
+        return self.config.generic.enable_shared_memory
 
     @property
     def config(self) -> BaseParse:
@@ -285,7 +289,7 @@ class CoralNode(MiddlewareCommunicator):
             )
 
     def _input_node_data_fill(self, payload: RawPayload, sender_payload: FirstPayload):
-        payload.raw = sender_payload.raw
+        payload.set_raw(sender_payload.raw)
     
     def _interface_node_data_fill(self, payload: RawPayload, sender_payload: BaseInterfacePayload):
         define_objects_cls = payload.__annotations__['objects']
@@ -315,9 +319,11 @@ class CoralNode(MiddlewareCommunicator):
             )
         payload.metas.update({_node_id: sender_payload})
     
-    def _record_node_cost(self, start_time: float):
-        cost_time = time.time() - start_time
-        self.metrics.cost_process_frames(cost_time)
+    def _record_node_cost(self, start_time: float, recv_timestamp: float = None):
+        process_cost_time = time.time() - start_time
+        node_cost_time = time.time() - recv_timestamp
+        self.metrics.cost_process_frames(process_cost_time)
+        self.metrics.crt_node_cost(node_cost_time)
         self.metrics.count_process_frames()
 
     def __sender(self, *args, **kwargs):
@@ -339,9 +345,9 @@ class CoralNode(MiddlewareCommunicator):
             # 不存在sender的情况，直接返回
             if self.meta.sender is None:
                 # 记录节点处理耗时&数量
-                self._record_node_cost(start_time)
+                self._record_node_cost(start_time, payload.timestamp)
                 logger.info(f"{self.config.node_id} no sender, return immediately!")
-                return (sender_payload, )
+                return (sender_payload,)
             
             self.fill_node_data_router(payload, sender_payload)
 
@@ -349,18 +355,22 @@ class CoralNode(MiddlewareCommunicator):
             crt_time = time.time()
             self.sender_times.append(crt_time)
             # 记录节点处理耗时&数量
-            self._record_node_cost(start_time)
+            self._record_node_cost(start_time, payload.timestamp)
 
             # node整体耗时：从接收到处理
-            payload.nodes_cost += crt_time - payload.timestamp
+            payload.nodes_cost += (crt_time - payload.timestamp)
             # 更新发送时间
             payload.timestamp = crt_time
+            # model_dump 内部实现了：
+            # 根据是否共享内存决定是否返回numpy或者shared_memory_id
             data = payload.model_dump()
             return (data,)
         except CoralSenderIgnoreException as e:
+            payload.release_shared_memory()
             return (None,)
         except Exception as e:
             logger.exception(f"__sender func error: {e}")
+            payload.release_shared_memory()
             return (None,)
 
     def __init(self):
@@ -429,6 +439,8 @@ class CoralNode(MiddlewareCommunicator):
         """
         is_pass = self._record_and_just_is_pass_frame(recv_node_id=payload.source_id)
         if is_pass:
+            # 被skip的帧也需要释放共享内存
+            payload.release_shared_memory()
             logger.debug(f"{payload.source_id} frame is passed!")
             return
 
@@ -439,6 +451,9 @@ class CoralNode(MiddlewareCommunicator):
                     f"{self.__class__.__name__} queue is full! overwrite pre payload"
                 )
                 self.metrics.count_full_drop_frames()
+                # 满了主动pop出数据，为了对共享内存做释放
+                pre_payload: RawPayload = self._queue.popleft()
+                pre_payload.release_shared_memory()
 
             self._queue.append(payload)
         else:
@@ -467,7 +482,7 @@ class CoralNode(MiddlewareCommunicator):
         payload = _payload[0]
 
         if payload == DEFAULT_NO_RECEVIER_MSG:
-            raw_payload = RawPayload(source_id=self.config.node_id)
+            raw_payload = RawPayload(source_id=self.config.node_id, enable_shared_memory=self.enable_shared_memory)
         else:
             receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(
                 receiver.__qualname__
@@ -475,7 +490,7 @@ class CoralNode(MiddlewareCommunicator):
             communicator = receiver_wrapper_func["communicator"][0]
             receiver_func_kwargs = communicator["return_func_kwargs"]
             payload_cls: RawPayload = receiver_func_kwargs["payload_cls"]
-            raw_payload = payload_cls(**payload)
+            raw_payload = payload_cls(**payload, enable_shared_memory=self.enable_shared_memory)
         # 从上一个节点发送到该节点接受耗时
         self.metrics.cost_pendding_frames(time.time() - raw_payload.timestamp)
         return raw_payload

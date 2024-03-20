@@ -2,18 +2,23 @@
     "node_id": "node2",
     "process": {
         "enable_parallel": true,
-        "count": 5
+        "count": 3
+    },
+    "generic": {
+        "enable_shared_memory": true
     },
     "meta": {
         "receivers": [
             {
-                "node_id": "node1"
+                "node_id": "node1",
+                "blocking": true
             }
         ],
         "sender": 
             {
                 "node_id": "node2",
-                "raw_type": "RawImage"
+                "raw_type": "RawImage",
+                "blocking": true
             }
     },
     "params": {}

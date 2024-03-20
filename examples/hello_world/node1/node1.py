@@ -43,7 +43,7 @@ class Node1(CoralNode):
         context.update({'init': 'node1', 'raw': blue_image})
 
     def sender(self, payload: dict, context: dict):
-        time.sleep(0.01)
+        time.sleep(0.1)
         return FirstPayload(raw=context['raw'])
 
 

@@ -1,7 +1,9 @@
+import os
 from functools import cached_property
 from typing import List, Dict, Union
 
-from pydantic import BaseModel, Field, computed_field, validator
+from loguru import logger
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from .payload import (
     DTManager,
@@ -73,7 +75,8 @@ class PubSubBaseModel(CoralBaseModel):
 
 class ReceiverModel(PubSubBaseModel):
 
-    @validator("raw_type")
+    @field_validator("raw_type")
+    @classmethod
     def validate_payload_type(cls, v):
         if v not in DTManager.registry:
             raise ValueError(
@@ -94,7 +97,8 @@ class ReceiverModel(PubSubBaseModel):
 
 class SenderModel(PubSubBaseModel):
 
-    @validator("raw_type")
+    @field_validator("raw_type")
+    @classmethod
     def validate_payload_type(cls, v):
         if v not in DTManager.registry:
             raise ValueError(
@@ -161,7 +165,22 @@ class GenericParamsModel(CoralBaseModel):
     """
     skip_frame: int = Field(frozen=True, default=0, description="每隔几帧处理一次")
     enable_metrics: bool = Field(frozen=True, default=True, description="是否开启服务监控")
-    metrics_interval: int = Field(frozen=True, default=10, description="监控间隔")
+    enable_shared_memory: bool = Field(frozen=True, default=False, validate_default=True, description="是否开启共享内存")
+
+    @field_validator("enable_shared_memory")
+    @classmethod
+    def validate_enable_shared_memory(cls, v):
+        enable_shared_memory =  os.environ.get("CORAL_NODE_ENABLE_SHARED_MEMORY")
+        if enable_shared_memory is None:
+            return v
+
+        logger.info(f'exist env [ CORAL_NODE_ENABLE_SHARED_MEMORY ], set enable_shared_memory is {enable_shared_memory} !')
+        if enable_shared_memory == "true":
+            return True
+        elif enable_shared_memory == "false":
+            return False
+
+        return v
 
 
 class ConfigModel(CoralBaseModel):
@@ -175,7 +194,8 @@ class ConfigModel(CoralBaseModel):
     generic: GenericParamsModel = Field(frozen=True, default=GenericParamsModel())
     params: Dict = Field(frozen=True, default=None)
 
-    @validator("params")
+    @field_validator("params")
+    @classmethod
     def check_params_type(cls, v):
         if v is None:
             return v

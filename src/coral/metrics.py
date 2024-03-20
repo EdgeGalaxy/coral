@@ -5,8 +5,10 @@ from typing import Union, Dict
 import paho.mqtt.client as mqtt
 from loguru import logger
 
+from .constants import MOUNT_PATH
 
-COMMON_CONFIG_FP = os.environ.get("CORAL_COMMON_CONFIG_PATH", f"{os.environ['HOME']}/.coral/common-config.json")
+
+COMMON_CONFIG_FP = os.path.join(MOUNT_PATH, "common-config.json")
 
 
 class CoralNodeMetrics:
@@ -22,46 +24,49 @@ class CoralNodeMetrics:
         self.pipeline_id = pipeline_id
         self.node_id = node_id
         if not enable:
-            logger.warning(f'{node_id} not enable metrics!')
+            logger.warning(f"{node_id} not enable metrics!")
             return
         if not os.path.exists(COMMON_CONFIG_FP):
             self.enable = False
-            logger.error(f'{pipeline_id} not found common config: {COMMON_CONFIG_FP}')
+            logger.error(f"{pipeline_id} not found common config: {COMMON_CONFIG_FP}")
             return
 
         self.cfg = self.get_common_config()
-        self.organization_id = self.cfg.get('organization_id', 'coral-user')
-        self.gateway_id = self.cfg.get('gateway_id', 'coral-gateway')
+        self.organization_id = self.cfg.get("organization_id", "coral-user")
+        self.gateway_id = self.cfg.get("gateway_id", "coral-gateway")
         self.topic_prefix = self._topic_prefix()
-        self.mqtt_client = init_mqtt(self.cfg.get('mqtt', {}))
-    
+        self.mqtt_client = init_mqtt(self.cfg.get("mqtt", {}))
+
     def get_common_config(self) -> Dict:
-        with open(COMMON_CONFIG_FP, 'r') as f:
+        with open(COMMON_CONFIG_FP, "r") as f:
             return json.load(f)
-    
+
     def _topic_prefix(self):
-        prefix = f"/organization/{self.organization_id}/gateway/{self.gateway_id}/pipeline/{self.pipeline_id}/node/{self.node_id}"
+        prefix = f"organization/{self.organization_id}/gateway/{self.gateway_id}/pipeline/{self.pipeline_id}/node/{self.node_id}"
         logger.info(f"node: {self.node_id} topic prefix: {prefix}")
         return prefix
-    
+
     def publish(self, topic: str, topic_type: str, message: dict):
-        mqtt_topic = f'{self.topic_prefix}/{topic}/{topic_type}'
+        mqtt_topic = f"{self.topic_prefix}/{topic}/{topic_type}"
         return self.mqtt_client.publish(mqtt_topic, json.dumps(message))
 
     def count_process_frames(self, value: int = 1):
-        return self.system_set('process_frames_count', value)
+        return self.system_set("process_frames_count", value)
 
     def count_full_drop_frames(self, value: int = 1):
-        return self.system_set('drop_frames_count', value)
+        return self.system_set("drop_frames_count", value)
 
     def count_skip_drop_frames(self, value: int = 1):
-        return self.system_set('skip_frames_count', value)
+        return self.system_set("skip_frames_count", value)
 
     def cost_process_frames(self, value: float):
-        return self.system_set('process_frames_cost', round(value, 4))
+        return self.system_set("process_frames_cost", round(value, 4))
+
+    def crt_node_cost(self, value: float):
+        return self.system_set("process_node_cost", round(value, 4))
 
     def cost_pendding_frames(self, value: float):
-        return self.system_set('pendding_frames_cost', round(value, 4))
+        return self.system_set("pendding_frames_cost", round(value, 4))
 
     def system_set(
         self,
@@ -70,8 +75,8 @@ class CoralNodeMetrics:
     ):
         if not self.enable:
             return
-        self.publish(topic, 'system', {"value": value})
-    
+        self.publish(topic, "system", {"value": value})
+
     def business_set(
         self,
         topic: str,
@@ -79,8 +84,8 @@ class CoralNodeMetrics:
     ):
         if not self.enable:
             return
-        self.publish(topic, 'business', {"value": value})
-        
+        self.publish(topic, "business", {"value": value})
+
 
 def init_mqtt(cfg: dict) -> mqtt.Client:
     # 获取必要的配置
@@ -95,10 +100,10 @@ def init_mqtt(cfg: dict) -> mqtt.Client:
 
     # MQTT连接回调函数
     def on_connect(*args, **kwargs):
-        if kwargs.get('rc', -1) == 0:
+        if kwargs.get("rc", -1) == 0:
             logger.info("Connected to MQTT Broker!")
         else:
-            logger.error("Failed to connect, return code %d\n", kwargs.get('rc'))
+            logger.error("Failed to connect, return code %d\n", kwargs.get("rc"))
 
     # MQTT断开连接回调函数
     def on_disconnect(*args, **kwargs):

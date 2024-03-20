@@ -1,12 +1,13 @@
 {
     "node_id": "node3",
+    "generic": {
+        "enable_shared_memory": false
+    },
     "meta": {
         "receivers": [{
-            "node_id": "node2"
-        }],
-        "sender": {
-            "node_id": "node3"
-        }
+            "node_id": "node2",
+            "blocking": true
+        }]
     },
     "params": {}
 }

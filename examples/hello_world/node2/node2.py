@@ -34,7 +34,7 @@ class Node2(CoralNode):
         context.update({'init': 'node1'})
 
     def sender(self, payload: dict, context: dict) -> ObjectsPayload:
-        time.sleep(0.1)
+        time.sleep(0.05)
         objects = [ObjectPayload(**{
             "class_id": 1,
             "label": "person",

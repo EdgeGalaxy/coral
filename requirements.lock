@@ -10,6 +10,7 @@
 --trusted-host pypi.tuna.tsinghua.edu.cn
 annotated-types==0.6.0
     # via pydantic
+apscheduler==3.10.4
 certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
@@ -22,6 +23,7 @@ loguru==0.7.2
 numpy==1.24.4
     # via opencv-contrib-python
     # via opencv-python
+    # via sharedarray
     # via wrapyfi
 opencv-contrib-python==4.9.0.80
     # via wrapyfi
@@ -32,15 +34,22 @@ pydantic==2.5.3
 pydantic-core==2.14.6
     # via pydantic
 pyrsistent==0.20.0
+pytz==2024.1
+    # via apscheduler
 pyyaml==6.0.1
     # via wrapyfi
 pyzmq==25.1.2
     # via wrapyfi
 requests==2.31.0
 schedule==1.2.1
+sharedarray==3.2.3
+six==1.16.0
+    # via apscheduler
 typing-extensions==4.9.0
     # via pydantic
     # via pydantic-core
+tzlocal==5.2
+    # via apscheduler
 urllib3==2.2.1
     # via requests
 wrapyfi==0.4.30

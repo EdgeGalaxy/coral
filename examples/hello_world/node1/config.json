@@ -1,8 +1,12 @@
 {
     "node_id": "node1",
+    "generic": {
+        "enable_shared_memory": false
+    },
     "meta": {
         "sender": { 
-            "node_id": "node1"
+            "node_id": "node1",
+            "blocking": true
         }
     },
     "params": {}
