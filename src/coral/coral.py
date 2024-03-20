@@ -1,3 +1,4 @@
+import atexit
 import os
 import time
 import json
@@ -11,14 +12,14 @@ from collections import defaultdict, deque
 from loguru import logger
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
 
-from .constants import DEFAULT_NO_RECEVIER_MSG
+from .constants import DEFAULT_NO_RECEVIER_MSG, SHARED_MEMORY_ID_STORE_DIR
 from .parse import CoralParser
 from .parser import BaseParse
 from .metrics import CoralNodeMetrics
+from .sched import bg_tasks, SharedMemoryIDManager
 from .exception import (
     CoralSenderIgnoreException,
 )
-from .utils import generate_short_uid
 from .types import (
     MetaModel,
     BaseParamsModel,
@@ -31,6 +32,7 @@ from .types import (
     BaseInterfacePayload,
     InterfaceMode,
     ReturnPayload,
+    shared_memory_store
 )
 
 
@@ -79,6 +81,22 @@ class CoralNode(MiddlewareCommunicator):
         )
         # skip frame recorder
         self.receiver_frames_count = defaultdict(int)
+        # start bg tasks
+        self.bg_tasks = bg_tasks
+        bg_tasks.start()
+        # set node state
+        self._is_running = False
+        # shared memory manager
+        self.shared_memory_mamager = SharedMemoryIDManager()
+        self.shared_memory_mamager.init_mamager(self.config.node_id)
+        # exit register
+        atexit.register(self.bg_tasks.shutdown)
+        atexit.register(self.shared_memory_mamager.dump)
+        atexit.register(self.shutdown)
+    
+    @property
+    def is_running(self):
+        return self._is_running
     
     @classmethod
     def check_required_config(cls):
@@ -415,6 +433,9 @@ class CoralNode(MiddlewareCommunicator):
         """
         context = self.__init()
         while True:
+            if not self.is_running:
+                logger.info(f'background sender task check is_running is False, stoped!')
+                break
             try:
                 payload = self._queue.popleft()
             except IndexError:
@@ -563,6 +584,10 @@ class CoralNode(MiddlewareCommunicator):
         self.__sender = self.__init_sender(self.meta.sender)
         context = self.__init()
         while True:
+            if not self.is_running:
+                logger.info(f'on_solo_receivers function check is_running is False, stoped!')
+                break
+
             for receiver in self.receivers:
                 payload = self.__on_receiver_callback(receiver)
                 if payload is None:
@@ -587,6 +612,10 @@ class CoralNode(MiddlewareCommunicator):
         """
         self.__run_background_senders()
         while True:
+            if not self.is_running:
+                logger.info(f'on_process_receviers function check is_running is False, stoped!')
+                break
+
             for receiver in self.receivers:
                 try:
                     payload = self.__on_receiver_callback(receiver)
@@ -624,6 +653,9 @@ class CoralNode(MiddlewareCommunicator):
         """
         raise NotImplementedError
 
+    def shutdown(self):
+        self._is_running = False
+
     def run(self):
         """
         Run the function.
@@ -636,6 +668,11 @@ class CoralNode(MiddlewareCommunicator):
         Returns:
             None
         """
+        if self.is_running:
+            logger.error("CoralNode is already running!")
+            return
+        # 设置为正在运行
+        self._is_running = True
         if self.process.enable_parallel:
             self.on_process_receviers()
         else:

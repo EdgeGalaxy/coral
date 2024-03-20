@@ -1,4 +1,5 @@
-import uuid
+import atexit
+from functools import partial
 import time
 from enum import Enum
 from types import NoneType
@@ -11,10 +12,11 @@ from loguru import logger
 from pydantic import BaseModel, Field, WithJsonSchema, PrivateAttr, computed_field
 from wrapyfi.publishers import Publishers
 
-from ..utils import generate_short_uid
+from ..utils import generate_short_uid 
 from ..constants import SHARED_DATA_TYPE
+from ..sched import SharedMemoryIDManager as SMIM
 
-
+shared_memory_store = {}
 # 指定json_schema类型的numpy类型，否则numpy类型的字段无法序列化
 CoralIntNdarray = Annotated[
     np.ndarray, WithJsonSchema({"type": "array", "items": {"type": "integer"}})
@@ -167,8 +169,7 @@ class BaseRawPayload(CoralBaseModel):
     def _fetch_shared_memory_data(self, _raw_shared_memory_id: str):
         """在共享内存中获取数据"""
         try:
-            _raw = sa.attach(_raw_shared_memory_id)
-            logger.info(f"attach shared memory: {_raw_shared_memory_id}")
+            _raw = SMIM().attach(_raw_shared_memory_id)
         except FileNotFoundError as e:
             raise FileNotFoundError(
                 f"未找到共享内存: {_raw_shared_memory_id} 信息: {e}"
@@ -178,15 +179,14 @@ class BaseRawPayload(CoralBaseModel):
     def _create_shared_memory_data(self, _raw: np.ndarray):
         """创建共享内存数据"""
         _raw_shared_memory_id = f"{SHARED_DATA_TYPE}{self.raw_id}"
-        memory_data = sa.create(_raw_shared_memory_id, _raw.shape, _raw.dtype)
+        memory_data = SMIM().add(_raw_shared_memory_id, _raw.shape, _raw.dtype)
         memory_data[:] = _raw
-        logger.info(f"create shared memory: {_raw_shared_memory_id}")
         return _raw, _raw_shared_memory_id
     
     def _compare_and_repair_memory_data(self, _raw, _raw_shared_memory_id):
         """比较外部_raw和共享内存内的数据，并修复"""
         try:
-            memory_data = sa.attach(_raw_shared_memory_id)
+            memory_data = SMIM().attach(_raw_shared_memory_id)
         except FileNotFoundError as e:
             _raw, _raw_shared_memory_id = self._create_shared_memory_data(_raw)
             logger.warning(
@@ -200,6 +200,16 @@ class BaseRawPayload(CoralBaseModel):
                     f"字段 _raw -> {_raw.shape} {_raw.dtype} 的数据不一致 "
                 )
         return _raw, _raw_shared_memory_id
+
+    def release_shared_memory(self, shared_memroy_id: str = None):
+        """释放共享内存数据"""
+        _raw_shared_memory_id = shared_memroy_id or self._raw_shared_memory_id
+        if _raw_shared_memory_id:
+            try:
+                SMIM().remove(_raw_shared_memory_id)
+                self._raw_shared_memory_id = None
+            except FileNotFoundError as e:
+                logger.warning(f"未找到共享内存: {_raw_shared_memory_id} 信息: {e}")
 
     def _init_private_field(self, data):
         _raw = (
@@ -262,16 +272,6 @@ class BaseRawPayload(CoralBaseModel):
             self._raw_shared_memory_id = None
 
         self._raw = _raw
-
-    def release_shared_memory(self, shared_memroy_id: str = None):
-        _raw_shared_memory_id = shared_memroy_id or self._raw_shared_memory_id
-        if _raw_shared_memory_id:
-            try:
-                sa.delete(_raw_shared_memory_id)
-                self._raw_shared_memory_id = None
-                logger.info(f"release shared memory: {_raw_shared_memory_id}")
-            except FileNotFoundError as e:
-                logger.warning(f"未找到共享内存: {_raw_shared_memory_id} 信息: {e}")
 
 
 class RawPayload(BaseRawPayload):

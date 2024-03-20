@@ -5,8 +5,7 @@
     },
     "meta": {
         "receivers": [{
-            "node_id": "node2",
-            "blocking": true
+            "node_id": "node2"
         }]
     },
     "params": {}
