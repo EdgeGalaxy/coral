@@ -1,4 +1,6 @@
 import os
+import atexit
+import time
 import json
 from typing import Union, Dict
 
@@ -48,6 +50,7 @@ class CoralNodeMetrics:
 
     def publish(self, topic: str, topic_type: str, message: dict):
         mqtt_topic = f"{self.topic_prefix}/{topic}/{topic_type}"
+        message.update({'publish_timestamp': time.time() * 1000})
         return self.mqtt_client.publish(mqtt_topic, json.dumps(message))
 
     def count_process_frames(self, value: int = 1):
@@ -99,19 +102,22 @@ def init_mqtt(cfg: dict) -> mqtt.Client:
         client.username_pw_set(mqtt_username, mqtt_password)
 
     # MQTT连接回调函数
-    def on_connect(*args, **kwargs):
-        if kwargs.get("rc", -1) == 0:
-            logger.info("Connected to MQTT Broker!")
+    def on_connect(client, userdata, flags, rc, *args, **kwargs):
+        if rc == 0:
+            logger.info(f"Connected to MQTT Broker, {str(rc)}")
         else:
-            logger.error("Failed to connect, return code %d\n", kwargs.get("rc"))
+            logger.error(f"Failed to connect, return code {str(rc)}")
 
     # MQTT断开连接回调函数
-    def on_disconnect(*args, **kwargs):
-        logger.error("Disconnected from MQTT Broker!!")
+    def on_disconnect(client, userdata, flags, rc, *args, **kwargs):
+        logger.error(f"Failed to disconnect, return code {str(rc)}")
 
     # MQTT设置回调函数
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     # 连接MQTT服务器
     client.connect(host=mqtt_broker, port=mqtt_port, **cfg)
+    # 后台持续监控mqtt连接和其他事件
+    client.loop_start()
+    atexit.register(client.loop_stop)
     return client

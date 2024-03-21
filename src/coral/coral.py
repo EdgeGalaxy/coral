@@ -1,5 +1,6 @@
 import atexit
 import os
+from re import M
 import time
 import json
 import requests
@@ -12,7 +13,12 @@ from collections import defaultdict, deque
 from loguru import logger
 from wrapyfi.connect.wrapper import MiddlewareCommunicator
 
-from .constants import DEFAULT_NO_RECEVIER_MSG, SHARED_MEMORY_ID_STORE_DIR
+from .constants import (
+    DEFAULT_NO_RECEVIER_MSG,
+    CORAL_NODE_SHARED_MEMORY_EXPIRE,
+    CORAL_NODE_CONFIG_PATH,
+    CORAL_NODE_BASE64_DATA,
+)
 from .parse import CoralParser
 from .parser import BaseParse
 from .metrics import CoralNodeMetrics
@@ -32,14 +38,9 @@ from .types import (
     BaseInterfacePayload,
     InterfaceMode,
     ReturnPayload,
-    shared_memory_store
 )
 
 
-# 节点配置文件变量
-CORAL_NODE_CONFIG_PATH = os.environ.get("CORAL_NODE_CONFIG_PATH")
-# 节点配置Bas64环境变量
-CORAL_NODE_BASE64_DATA = os.environ.get("CORAL_NODE_BASE64_DATA")
 # 节点类型
 class NodeType(Enum):
     input = "input"
@@ -47,6 +48,7 @@ class NodeType(Enum):
     rule = "rule"
     trigger = "trigger"
     output = "output"
+
 
 NODE_TYPES = [m for m in NodeType]
 
@@ -57,7 +59,7 @@ class CoralNode(MiddlewareCommunicator):
     node_name: str = None
     node_desc: str = None
 
-    config_fp: str = 'config.json'
+    config_fp: str = "config.json"
 
     def __init__(self):
         self.check_required_config()
@@ -83,44 +85,46 @@ class CoralNode(MiddlewareCommunicator):
         self.receiver_frames_count = defaultdict(int)
         # start bg tasks
         self.bg_tasks = bg_tasks
-        bg_tasks.start()
         # set node state
         self._is_running = False
         # shared memory manager
-        self.shared_memory_mamager = SharedMemoryIDManager()
-        self.shared_memory_mamager.init_mamager(self.config.node_id)
+        self.shared_memory_mamager = SharedMemoryIDManager(
+            manager_id=self.config.node_id, expire=CORAL_NODE_SHARED_MEMORY_EXPIRE
+        )
         # exit register
-        atexit.register(self.bg_tasks.shutdown)
-        atexit.register(self.shared_memory_mamager.dump)
         atexit.register(self.shutdown)
-    
+
     @property
     def is_running(self):
         return self._is_running
-    
+
     @classmethod
     def check_required_config(cls):
-        assert cls.node_type in NODE_TYPES, '[ node_type ] 必须属于以下参数值 {}'.format(NODE_TYPES)
-        assert cls.node_name is not None, '[ node_name ] 不能为None'
-        assert cls.node_desc is not None, '[ node_desc ] 不能为None'
-    
+        assert (
+            cls.node_type in NODE_TYPES
+        ), "[ node_type ] 必须属于以下参数值 {}".format(NODE_TYPES)
+        assert cls.node_name is not None, "[ node_name ] 不能为None"
+        assert cls.node_desc is not None, "[ node_desc ] 不能为None"
+
     @classmethod
     def get_config(cls):
         if CORAL_NODE_BASE64_DATA:
-            logger.info(f'use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}')
-            return CORAL_NODE_BASE64_DATA, 'base64'
+            logger.info(f"use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}")
+            return CORAL_NODE_BASE64_DATA, "base64"
         if CORAL_NODE_CONFIG_PATH:
-            logger.info(f'use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}')
-            return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split('.')[-1]
-        logger.info(f'use default config path: {cls.config_fp}')
-        return cls.config_fp, cls.config_fp.split('.')[-1]
-    
+            logger.info(f"use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}")
+            return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split(".")[-1]
+        logger.info(f"use default config path: {cls.config_fp}")
+        return cls.config_fp, cls.config_fp.split(".")[-1]
+
     @classmethod
     def node_register(cls):
         cls.check_required_config()
         config_path, file_type = cls.get_config()
         config = CoralParser.parse(config_path, file_type)
-        schema = config.parse_json_schema(cls.node_name, cls.node_desc, cls.node_type.value)
+        schema = config.parse_json_schema(
+            cls.node_name, cls.node_desc, cls.node_type.value
+        )
         cls.publish_node_schema(schema)
 
     @classmethod
@@ -134,22 +138,26 @@ class CoralNode(MiddlewareCommunicator):
         node_version = os.environ.get("CORAL_NODE_VERSION")
         node_image = os.environ.get("CORAL_NODE_DOCKER_IMAGE")
         register_url = os.environ.get("CORAL_NODE_REGISTER_URL")
-        logger.info(f"publish node schema: {node_id} {node_version} {node_image} {register_url}!")
+        logger.info(
+            f"publish node schema: {node_id} {node_version} {node_image} {register_url}!"
+        )
         if all([node_id, node_version, node_image, register_url]):
-            url = urljoin(register_url, f'/api/v1/node/{node_id}/{node_version}')
-            schema.update({'image': node_image})
+            url = urljoin(register_url, f"/api/v1/node/{node_id}/{node_version}")
+            schema.update({"image": node_image})
             r = requests.post(url, json=schema, timeout=5)
             if r.ok:
                 logger.info(f"publish node schema success: {url} {json.dumps(schema)}!")
             else:
-                raise Exception(f"publish node schema failed: {url} {r.status_code} {r.content}!")
+                raise Exception(
+                    f"publish node schema failed: {url} {r.status_code} {r.content}!"
+                )
         else:
             logger.info(f"not need publish node schema: {json.dumps(schema)}!")
-        
+
     @property
     def skip_frame_count(self):
         return self.config.generic.skip_frame
-    
+
     @property
     def enable_shared_memory(self):
         return self.config.generic.enable_shared_memory
@@ -293,8 +301,12 @@ class CoralNode(MiddlewareCommunicator):
             logger.warning(f"no receiver, use default receiver!!!")
             receivers.append(default_func)
         return receivers
-    
-    def fill_node_data_router(self, payload: RawPayload, sender_payload: Union[FirstPayload, BaseInterfacePayload, ReturnPayload]):
+
+    def fill_node_data_router(
+        self,
+        payload: RawPayload,
+        sender_payload: Union[FirstPayload, BaseInterfacePayload, ReturnPayload],
+    ):
         if payload.raw is None:
             self._input_node_data_fill(payload, sender_payload)
         elif isinstance(sender_payload, BaseInterfacePayload):
@@ -308,10 +320,12 @@ class CoralNode(MiddlewareCommunicator):
 
     def _input_node_data_fill(self, payload: RawPayload, sender_payload: FirstPayload):
         payload.set_raw(sender_payload.raw)
-    
-    def _interface_node_data_fill(self, payload: RawPayload, sender_payload: BaseInterfacePayload):
-        define_objects_cls = payload.__annotations__['objects']
-        set_objects_cls = sender_payload.__annotations__['objects']
+
+    def _interface_node_data_fill(
+        self, payload: RawPayload, sender_payload: BaseInterfacePayload
+    ):
+        define_objects_cls = payload.__annotations__["objects"]
+        set_objects_cls = sender_payload.__annotations__["objects"]
         if set_objects_cls != define_objects_cls:
             raise TypeError(
                 f"定义的objects类型为: [ {define_objects_cls} 而输入的objects类型为: {set_objects_cls} ]"
@@ -327,16 +341,14 @@ class CoralNode(MiddlewareCommunicator):
             raise TypeError(
                 f"推理节点支持的模式: [ {InterfaceMode.APPEND} | {InterfaceMode.OVERWRITE} ]"
             )
-    
+
     def _meta_node_data_fill(self, payload: RawPayload, sender_payload: ReturnPayload):
         payload.metas = payload.metas or {}
-        _node_id = f'node.{self.config.node_id}'
+        _node_id = f"node.{self.config.node_id}"
         if _node_id in payload.metas:
-            raise ValueError(
-                f"节点: {self.config.node_id} 已经存在于payload.metas中!"
-            )
+            raise ValueError(f"节点: {self.config.node_id} 已经存在于payload.metas中!")
         payload.metas.update({_node_id: sender_payload})
-    
+
     def _record_node_cost(self, start_time: float, recv_timestamp: float = None):
         process_cost_time = time.time() - start_time
         node_cost_time = time.time() - recv_timestamp
@@ -366,7 +378,7 @@ class CoralNode(MiddlewareCommunicator):
                 self._record_node_cost(start_time, payload.timestamp)
                 logger.info(f"{self.config.node_id} no sender, return immediately!")
                 return (sender_payload,)
-            
+
             self.fill_node_data_router(payload, sender_payload)
 
             # 记录发送的时间
@@ -376,7 +388,7 @@ class CoralNode(MiddlewareCommunicator):
             self._record_node_cost(start_time, payload.timestamp)
 
             # node整体耗时：从接收到处理
-            payload.nodes_cost += (crt_time - payload.timestamp)
+            payload.nodes_cost += crt_time - payload.timestamp
             # 更新发送时间
             payload.timestamp = crt_time
             # model_dump 内部实现了：
@@ -434,7 +446,9 @@ class CoralNode(MiddlewareCommunicator):
         context = self.__init()
         while True:
             if not self.is_running:
-                logger.info(f'background sender task check is_running is False, stoped!')
+                logger.info(
+                    f"background sender task check is_running is False, stoped!"
+                )
                 break
             try:
                 payload = self._queue.popleft()
@@ -503,7 +517,10 @@ class CoralNode(MiddlewareCommunicator):
         payload = _payload[0]
 
         if payload == DEFAULT_NO_RECEVIER_MSG:
-            raw_payload = RawPayload(source_id=self.config.node_id, enable_shared_memory=self.enable_shared_memory)
+            raw_payload = RawPayload(
+                source_id=self.config.node_id,
+                enable_shared_memory=self.enable_shared_memory,
+            )
         else:
             receiver_wrapper_func = self._MiddlewareCommunicator__registry.get(
                 receiver.__qualname__
@@ -511,7 +528,9 @@ class CoralNode(MiddlewareCommunicator):
             communicator = receiver_wrapper_func["communicator"][0]
             receiver_func_kwargs = communicator["return_func_kwargs"]
             payload_cls: RawPayload = receiver_func_kwargs["payload_cls"]
-            raw_payload = payload_cls(**payload, enable_shared_memory=self.enable_shared_memory)
+            raw_payload = payload_cls(
+                **payload, enable_shared_memory=self.enable_shared_memory
+            )
         # 从上一个节点发送到该节点接受耗时
         self.metrics.cost_pendding_frames(time.time() - raw_payload.timestamp)
         return raw_payload
@@ -531,7 +550,9 @@ class CoralNode(MiddlewareCommunicator):
         # 启动后台处理程序
         for idx in range(self.process.count):
             # 实例化sender func
-            sender_func = self.__pubsub_func_wrapper(name=f"__lambda_sender_{idx}", func=self.__sender)
+            sender_func = self.__pubsub_func_wrapper(
+                name=f"__lambda_sender_{idx}", func=self.__sender
+            )
             func = self.__init_sender(self.meta.sender, sender_func)
             self._process_cls(
                 target=self.__run, args=(func,), name=f"coral_process_{idx}"
@@ -585,7 +606,9 @@ class CoralNode(MiddlewareCommunicator):
         context = self.__init()
         while True:
             if not self.is_running:
-                logger.info(f'on_solo_receivers function check is_running is False, stoped!')
+                logger.info(
+                    f"on_solo_receivers function check is_running is False, stoped!"
+                )
                 break
 
             for receiver in self.receivers:
@@ -613,7 +636,9 @@ class CoralNode(MiddlewareCommunicator):
         self.__run_background_senders()
         while True:
             if not self.is_running:
-                logger.info(f'on_process_receviers function check is_running is False, stoped!')
+                logger.info(
+                    f"on_process_receviers function check is_running is False, stoped!"
+                )
                 break
 
             for receiver in self.receivers:

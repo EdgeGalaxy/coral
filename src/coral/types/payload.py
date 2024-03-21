@@ -16,7 +16,6 @@ from ..utils import generate_short_uid
 from ..constants import SHARED_DATA_TYPE
 from ..sched import SharedMemoryIDManager as SMIM
 
-shared_memory_store = {}
 # 指定json_schema类型的numpy类型，否则numpy类型的字段无法序列化
 CoralIntNdarray = Annotated[
     np.ndarray, WithJsonSchema({"type": "array", "items": {"type": "integer"}})

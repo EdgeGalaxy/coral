@@ -1,3 +1,4 @@
+import atexit
 import os
 import time
 import json
@@ -11,21 +12,29 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from .constants import SHARED_MEMORY_ID_STORE_DIR
 
 
+# 启动定时器线程
 bg_tasks = BackgroundScheduler()
+bg_tasks.start()
+atexit.register(bg_tasks.shutdown)
 
 
 class SharedMemoryIDManager(metaclass=SingletonOptimized):
-    def __init__(self, expire: int = 30):
-        # 默认 expire 秒在整个链路中要处理完, 否则会内存数据会被 expire * 3 秒后定时清除
+    """共享内存管理模块"""
+
+    def __init__(self, manager_id: str, expire: int):
+        # 默认 expire 秒在整个链路中要处理完, 否则会内存数据会被 expire * 1.5 秒后定时清除
         self._expire = expire
         self._memory_store = dict()
+        self.__init_mamager(manager_id)
     
-    def init_mamager(self, mamager_id):
+    def __init_mamager(self, mamager_id):
         self.manager_id = mamager_id
         self._fp = os.path.join(SHARED_MEMORY_ID_STORE_DIR, f"{self.manager_id}.json")
         self.__load_and_flush()
         # 此处默认启动定时器, expire * 3的轮询时间删除过期的内存, 内存保留 expire时间
-        self.interval_flush(self._expire * 3)
+        self.interval_flush(self._expire * 1.5)
+        # 注册停止操作
+        atexit.register(self.dump)
     
     def attach(self, memory_id):
         # attach memory时不更新 memory_store，因为memory的产生不一定是在当前节点
