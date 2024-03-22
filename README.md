@@ -34,68 +34,82 @@
 
 ### 继承开发
 
+
+- `node.py` - 作为程序运行的入口
+
 ```python
 import os
 import sys
+import time
 import numpy as np
-from typing import Union
+from typing import List, Dict
 
-from coral import CoralNode, ParamsModel, FirstPayload, RTManager, PTManager, CoralIntNdarray
+from pydantic import BaseModel
+
+from coral import CoralNode, BaseParamsModel, FirstPayload, NodeType, PTManager, RTManager, RawPayload
 
 
-# 定义入参的数据类型
+# 注册入参
 @PTManager.register()
-class Node1ParamsModel(ParamsModel):
-    weight_fp: str = 'weight_fp.pt' 
+class Node1ParamsModel(BaseParamsModel):
     width: int = 1080
     height: int = 1280
 
 
-class Node1(CoralNode):
+# 注册FirstPayload作为ReturnPayload
+RTManager.register()(FirstPayload)
 
-    # 指定配置文件路径
-    config_path = 'config.json'
 
-    def init(self, context: dict):
-        "节点初始化相关逻辑，context会传递到sender方法中"
-        blue_image = np.zeros((640, 640, 3), np.uint8)
-        blue_image[:] = (255, 0, 0)  # BGR格式
-        context.update({'init': 'node1', 'raw': blue_image})
+class InputNode(CoralNode):
 
-    def sender(self, payload: dict, context: dict) -> FirstPayload:
-        "节点发送逻辑，return的内容会附加到RawImage消息类型中发送"
-        return FirstPayload(raw=context['raw'])
+    node_name = '模拟视频流节点'
+    node_desc = 'opencv随机生成视频流传输'
+    config_fp = 'config.json'
+    node_type = NodeType.input
+
+    def init(self, context: Dict):
+        """节点初始化参数，多线程时线程间Context数据隔离"""
+        # 获取入参数据
+        timestamp = time.time()
+        context.update({'init_time': timestamp})
+
+    def sender(self, payload: RawPayload, context: Dict):
+        print('init time', context['init_time'])
+        raw = np.zeros((self.params.width, self.params.height, 3), np.uint8)
+        raw[:] = (255, 0, 0)  # BGR格式
+        return FirstPayload(raw=raw)
+
+
+if __name__ == '__main__':
+    import os
+    run_type = os.getenv("CORAL_NODE_RUN_TYPE", "run")
+    if run_type == 'register':
+        InputNode.node_register()
+    else:
+        InputNode().run()
+
 ```
 
+- `config.json` - 作为程序运行默认的配置文件
 
 ```json
 {
-    "node_id": "node1",
+    "node_id": "input_node",
     "meta": {
-        "sender": {
-            "node_id": "node1"
+        "sender": { 
+            "node_id": "input_node"
         }
     },
-    "generic": {
-        "enable_metrics": true,
-        "count": 5
-    },
     "params": {
-        "weight_fp": "model_path",
-        "width": 100,
-        "height": 200
+        "width": 640,
+        "height": 640
     }
 }
 ```
-
-
-### 命令行运行（cooming soon...）
 
 
 ## 注意事项
 
 1. zeromq pub/sub传输的速率如何？
 
-与传输的的消息大小有关，模拟测试（640，640，3）的图片向量PUB速率在传输 120帧/s， SUB的速率在65帧/s。这种情况下就会存在比较大的延迟
-
-- 可以通过多线程模式来加速处理
+与传输的的消息大小有关，模拟测试（640，640，3）的图片向量PUB速率在传输 120帧/s， SUB的速率在65帧/s。这种情况下就会存在比较大的延迟, 可以通过多线程模式来加速处理
