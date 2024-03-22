@@ -38,13 +38,15 @@ class InputNode(CoralNode):
 
     def init(self, context: Dict):
         """节点初始化参数，多线程时线程间Context数据隔离"""
-        blue_image = np.zeros((640, 640, 3), np.uint8)
-        blue_image[:] = (255, 0, 0)  # BGR格式
-        context.update({'init': 'node1', 'raw': blue_image})
+        # 获取入参数据
+        timestamp = time.time()
+        context.update({'init_time': timestamp})
 
     def sender(self, payload: RawPayload, context: Dict):
-        time.sleep(0.05)
-        return FirstPayload(raw=context['raw'])
+        print('init time', context['init_time'])
+        raw = np.zeros((self.params.width, self.params.height, 3), np.uint8)
+        raw[:] = (255, 0, 0)  # BGR格式
+        return FirstPayload(raw=raw)
 
 
 if __name__ == '__main__':
@@ -61,10 +63,10 @@ if __name__ == '__main__':
 
 ```json
 {
-    "node_id": "node1",
+    "node_id": "input_node",
     "meta": {
         "sender": { 
-            "node_id": "node1"
+            "node_id": "input_node"
         }
     },
     "params": {
@@ -89,11 +91,12 @@ class Node1ParamsModel(BaseParamsModel):
 ```
 
 该段代码描述了入参的定义
-- `PTManager.register()` - 注册入参到入参管理器中
-- `BaseParamsModel` - 最基础的入参模型，需要入参模型均继承该类
+
+- `PTManager.register()`: 注册入参到入参管理器中
+- `BaseParamsModel`: 最基础的入参模型，需要入参模型均继承该类
 
 
-基于以上的装饰器和继承后，可以将入参交由Coral管理，程序会在运行时校验入参数据以及元数据上报时注册正确的入参格式和默认值。
+基于以上的装饰器和类继承后，可以将入参交由CoralNode管理，程序会在运行时校验入参数据以及元数据上报时注册正确的入参格式和默认值。
 
 
 ### 出参设置
@@ -103,8 +106,9 @@ RTManager.register()(FirstPayload)
 ```
 
 该段代码描述了节点出参的定义
-- `RTManager.register()` - 注册出参到出参管理器中
-- `FirstPayload` - 作为第一个数据输入节点的返回类, 定义如下:
+
+- `RTManager.register()`: 注册出参到出参管理器中
+- `FirstPayload`: 作为第一个数据输入节点的返回类, 定义如下:
 
 ```python
 class FirstPayload(ReturnPayload):
@@ -129,12 +133,12 @@ class InputNode(CoralNode):
 ```
 
 该段代码描述了节点描述类的定义:
-- `CoralNode` - 节点基类，所有Coral节点开发都需要继承该类
-- `node_name` - 节点中文名称
-- `node_desc` - 节点中文描述
-- `config_fp` - 节点配置文件路径，默认当前路径下的`config.json`文件
-- `node_type` - 节点类型，默认为`NodeType.input`, `NodeType`类型如下
 
+- `CoralNode`: 节点基类，所有Coral节点开发都需要继承该类
+- `node_name`: 节点中文名称
+- `node_desc`: 节点中文描述
+- `config_fp`: 节点配置文件路径，默认当前路径下的`config.json`文件
+- `node_type`: 节点类型，默认为`NodeType.input`, `NodeType`类型如下
 ```python
 class NodeType(Enum):
     input = "input"
@@ -153,32 +157,35 @@ class NodeType(Enum):
 
     def init(self, context: Dict):
         """节点初始化参数，多线程时线程间Context数据隔离"""
-        blue_image = np.zeros((640, 640, 3), np.uint8)
-        blue_image[:] = (255, 0, 0)  # BGR格式
-        context.update({'init': 'node1', 'raw': blue_image})
+        # 获取入参数据
+        timestamp = time.time()
+        context.update({'init_time': timestamp})
 ```
 
 该段代码描述了节点初始化数据函数的定义:
-- `init` - 节点初始化函数
-    - 支持`context`参数，用于传递数据到业务逻辑中，运行时一个线程中只初始化一次
 
-- `context.update({})` - 用于将数据更新到context中
+- `init` - 节点初始化函数
+    - `context`: 函数参数，用于传递数据到业务逻辑中，运行时一个线程中只初始化一次
+    - `context.update({})`: 用于将数据更新到context中
 
 ### 节点逻辑实现函数
 ```python
     ...
 
     def sender(self, payload: RawPayload, context: Dict):
-        time.sleep(0.05)
-        return FirstPayload(raw=context['raw'])
+        print('init time', context['init_time'])
+        raw = np.zeros((self.params.width, self.params.height, 3), np.uint8)
+        raw[:] = (255, 0, 0)  # BGR格式
+        return FirstPayload(raw=raw)
 ```
 
 该段代码描述了节点逻辑实现函数的定义:
-- `sender` - 节点逻辑实现函数
-    - 支持`payload`参数用于传递消息订阅的节点的通信数据到业务逻辑中
-    - 支持`context`参数用于传递节点初始化的数据到业务逻辑中
 
-- return - 返回数据，可通过`return`语句返回, 返回的格式必须是上面定义的`FirstPayload`格式
+- `sender`: 节点逻辑和发送节点数据函数
+    - `payload`参数用于传递订阅的节点消息数据到业务逻辑中
+    - `context`参数用于传递节点初始化的数据到业务逻辑中
+
+- return返回数据，可通过`return`语句返回, 返回的格式必须是上面定义的`FirstPayload`格式
 
 
 ### 运行配置
@@ -193,13 +200,14 @@ if __name__ == '__main__':
 ```
 
 运行配置：
+
 - `CORAL_NODE_RUN_TYPE`: 作为节点运行中的环境变量，可配置为`register`和`run`两种类型，支持节点做不同的操作
 
 - `InputNode.node_register()`: 节点注册，可以通过运行输出查看上报的节点数据格式，如果需要上报到远端服务，还需额外配置
 - `InputNode().run()`: 节点运行，不需要额外配置，持续订阅指定的上游节点的数据并处理
 
 
-### 节点通信格式: `RawPayload`
+### 节点通信数据格式
 
 `RawPayload` 作为节点间通信的基础的数据格式，定义如下:
 ```python
@@ -215,13 +223,14 @@ class RawPayload(BaseRawPayload):
     metas: Union[Dict[str, ReturnPayload], NoneType] = None
 ```
 
-- `source_id`: 第一个输入数据的的节点ID
+- `source_id`: 第一个输入数据的节点ID
 - `nodes_cost`: 第一个节点到当前节点的总耗时
 - `timestamp`: 当前节点处理完毕的时间戳
 - `objects`: 推理节点存储的数据格式
 - `metas`:  通用节点存储数据的容器
 
-通信类：`RawPayload` 支持的操作:
+通信类`RawPayload` 支持的操作:
+
 - `payload.raw`: 获取输入的numpy数据
 - `payload.raw_id`: 获取当前输入数据的唯一ID
 - `payload.set_raw(raw)`: 更改输入的numpy数据
@@ -229,7 +238,7 @@ class RawPayload(BaseRawPayload):
 
 #### 内置的节点通信
 
-##### `RawImagePayload`
+##### 图片数据
 
 ```python
 @DTManager.register("RawImage")
@@ -254,20 +263,21 @@ class RawImagePayload(RawPayload):
 ```
 
 图片数据通信类定义：
-- `DTManager.register`: 注册节点类型
+
+- `DTManager.register("RawImage")`: 注册节点类型
     - `RawImage`: 图片类数据对外的ID，默认的通信类型。在`config.json`中可配置节点出入参类型
 
-- `check_raw_data`: 校验输入的数据是否图片格式符合规范
+- `check_raw_data`: 校验输入的数据是否符合规范图片格式
 
 
 ### 配置文件`config.json`
 
 ```json
 {
-    "node_id": "node1",
+    "node_id": "input_node",
     "meta": {
         "sender": { 
-            "node_id": "node1"
+            "node_id": "input_node"
         }
     },
     "params": {
@@ -278,7 +288,8 @@ class RawImagePayload(RawPayload):
 ```
 
 配置文件最小版配置:
+
 - `node_id`: 当前节点的ID，需要不能与其他节点同名
-- `meta`: 当前节点通信模式的元数据
+- `meta`: 节点通信的元数据
     - `sender`: 发送者的元数据
 - `params`: 当前节点的入参
