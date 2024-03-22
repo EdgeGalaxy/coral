@@ -17,6 +17,10 @@ from .constants import (
     CORAL_NODE_SHARED_MEMORY_EXPIRE,
     CORAL_NODE_CONFIG_PATH,
     CORAL_NODE_BASE64_DATA,
+    NODE_ID,
+    NODE_VERSION,
+    NODE_IMAGE,
+    REGISTER_URL
 )
 from .parse import CoralParser
 from .parser import BaseParse
@@ -110,7 +114,7 @@ class CoralNode(MiddlewareCommunicator):
         if CORAL_NODE_BASE64_DATA:
             logger.info(f"use env CORAL_NODE_BASE64_DATA: {CORAL_NODE_BASE64_DATA}")
             return CORAL_NODE_BASE64_DATA, "base64"
-        if CORAL_NODE_CONFIG_PATH:
+        elif CORAL_NODE_CONFIG_PATH:
             logger.info(f"use env CORAL_NODE_CONFIG_PATH: {CORAL_NODE_CONFIG_PATH}")
             return CORAL_NODE_CONFIG_PATH, CORAL_NODE_CONFIG_PATH.split(".")[-1]
         logger.info(f"use default config path: {cls.config_fp}")
@@ -133,16 +137,12 @@ class CoralNode(MiddlewareCommunicator):
 
         :raises Exception:
         """
-        node_id = os.environ.get("CORAL_NODE_NAME")
-        node_version = os.environ.get("CORAL_NODE_VERSION")
-        node_image = os.environ.get("CORAL_NODE_DOCKER_IMAGE")
-        register_url = os.environ.get("CORAL_NODE_REGISTER_URL")
         logger.info(
-            f"publish node schema: {node_id} {node_version} {node_image} {register_url}!"
+            f"publish node schema: {NODE_ID} {NODE_VERSION} {NODE_IMAGE} {REGISTER_URL}!"
         )
-        if all([node_id, node_version, node_image, register_url]):
-            url = urljoin(register_url, f"/api/v1/node/{node_id}/{node_version}")
-            schema.update({"image": node_image})
+        if all([NODE_ID, NODE_VERSION, NODE_IMAGE, REGISTER_URL]):
+            url = urljoin(REGISTER_URL, f"/api/v1/node/{NODE_ID}/{NODE_VERSION}")
+            schema.update({"image": NODE_IMAGE})
             r = requests.post(url, json=schema, timeout=5)
             if r.ok:
                 logger.info(f"publish node schema success: {url} {json.dumps(schema)}!")

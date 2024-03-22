@@ -14,6 +14,7 @@ from .payload import (
     RTManager,
     CoralBaseModel,
 )
+from ..constants import ENABLE_SHARED_MEMORY
 
 
 class ProtocalType:
@@ -104,7 +105,7 @@ class SenderModel(PubSubBaseModel):
             raise ValueError(
                 f"Invalid payload type: {v}, should in {list(DTManager.registry.keys())}"
             )
-        if RTManager.default_type() is None and v != "Metrics":
+        if RTManager.default_type() is None:
             raise ValueError(
                 f"Not found ReturnPayload decorator by @RTManager.registry"
             )
@@ -170,14 +171,13 @@ class GenericParamsModel(CoralBaseModel):
     @field_validator("enable_shared_memory")
     @classmethod
     def validate_enable_shared_memory(cls, v):
-        enable_shared_memory =  os.environ.get("CORAL_NODE_ENABLE_SHARED_MEMORY")
-        if enable_shared_memory is None:
+        if ENABLE_SHARED_MEMORY is None:
             return v
 
-        logger.info(f'exist env [ CORAL_NODE_ENABLE_SHARED_MEMORY ], set enable_shared_memory is {enable_shared_memory} !')
-        if enable_shared_memory == "true":
+        logger.info(f'exist env [ CORAL_NODE_ENABLE_SHARED_MEMORY ], set enable_shared_memory is {ENABLE_SHARED_MEMORY} !')
+        if ENABLE_SHARED_MEMORY == "true":
             return True
-        elif enable_shared_memory == "false":
+        elif ENABLE_SHARED_MEMORY == "false":
             return False
 
         return v

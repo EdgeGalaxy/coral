@@ -42,14 +42,6 @@ class BaseParamsModel(CoralBaseModel):
     pass
 
 
-class MetricsPayload(CoralBaseModel):
-    """
-    指标监控基类
-    """
-
-    pass
-
-
 class BaseInterfaceItemPayload(CoralBaseModel):
     """
     推理单项结果基类
@@ -306,9 +298,7 @@ class DataTypeManager:
                 raise ValueError(
                     f"无效的节点类型值: {data_type}, 应属于以下值中之一: {cls.mapping_types}"
                 )
-            if not issubclass(cls_, RawPayload) and not issubclass(
-                cls_, MetricsPayload
-            ):
+            if not issubclass(cls_, RawPayload):
                 raise TypeError(
                     f"无效的节点类型: {cls_.__name__}, 应该属于 {RawPayload.__name__} 的子类"
                 )
