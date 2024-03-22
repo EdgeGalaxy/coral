@@ -1,6 +1,5 @@
 import atexit
 import os
-from re import M
 import time
 import json
 import requests

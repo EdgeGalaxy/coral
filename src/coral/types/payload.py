@@ -412,12 +412,3 @@ class RawImagePayload(RawPayload):
         if raw.dtype != np.uint8:
             raise ValueError("图片必须是 uint8 格式")
         return raw
-
-
-@DTManager.register("Metrics")
-class RawMetricsPayload(MetricsPayload):
-    """
-    指标类通信数据类
-    """
-
-    pass
