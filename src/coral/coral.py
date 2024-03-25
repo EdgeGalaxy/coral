@@ -1,5 +1,4 @@
 import atexit
-import os
 import time
 import json
 import requests
@@ -20,7 +19,7 @@ from .constants import (
     NODE_ID,
     NODE_VERSION,
     NODE_IMAGE,
-    REGISTER_URL
+    REGISTER_URL,
 )
 from .parse import CoralParser
 from .parser import BaseParse
@@ -297,7 +296,7 @@ class CoralNode(MiddlewareCommunicator):
             self.activate_communication(receiver, mode=self.mode.receiver)
             receivers.append(receiver)
         if not receivers:
-            logger.warning(f"no receiver, use default receiver!!!")
+            logger.warning("no receiver, use default receiver!!!")
             receivers.append(default_func)
         return receivers
 
@@ -394,7 +393,7 @@ class CoralNode(MiddlewareCommunicator):
             # 根据是否共享内存决定是否返回numpy或者shared_memory_id
             data = payload.model_dump()
             return (data,)
-        except CoralSenderIgnoreException as e:
+        except CoralSenderIgnoreException:
             payload.release_shared_memory()
             return (None,)
         except Exception as e:
@@ -446,7 +445,7 @@ class CoralNode(MiddlewareCommunicator):
         while True:
             if not self.is_running:
                 logger.info(
-                    f"background sender task check is_running is False, stoped!"
+                    "background sender task check is_running is False, stoped!"
                 )
                 break
             try:
@@ -606,7 +605,7 @@ class CoralNode(MiddlewareCommunicator):
         while True:
             if not self.is_running:
                 logger.info(
-                    f"on_solo_receivers function check is_running is False, stoped!"
+                    "on_solo_receivers function check is_running is False, stoped!"
                 )
                 break
 
@@ -636,7 +635,7 @@ class CoralNode(MiddlewareCommunicator):
         while True:
             if not self.is_running:
                 logger.info(
-                    f"on_process_receviers function check is_running is False, stoped!"
+                    "on_process_receviers function check is_running is False, stoped!"
                 )
                 break
 

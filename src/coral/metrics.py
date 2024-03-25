@@ -50,7 +50,7 @@ class CoralNodeMetrics:
 
     def publish(self, topic: str, topic_type: str, message: dict):
         mqtt_topic = f"{self.topic_prefix}/{topic}/{topic_type}"
-        message.update({'publish_timestamp': time.time() * 1000})
+        message.update({"publish_timestamp": time.time() * 1000})
         return self.mqtt_client.publish(mqtt_topic, json.dumps(message))
 
     def count_process_frames(self, value: int = 1):

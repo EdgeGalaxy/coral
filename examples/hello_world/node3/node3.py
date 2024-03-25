@@ -1,8 +1,5 @@
-import cv2
 import os
 import sys
-import numpy as np
-from typing import Union
 
 # 将src加入到系统路径
 sys.path.append(os.path.abspath('../../../src'))

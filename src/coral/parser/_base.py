@@ -1,10 +1,7 @@
-import json
-from typing import Dict, Union
 
 from loguru import logger
 from pydantic import create_model, Field
 
-from coral.types.payload import ReturnPayload
 
 from ..types import (
     ConfigModel,
@@ -85,24 +82,23 @@ class BaseParse:
             "input_topic": _receiver_topic,
             "output_topic": _sender_topic,
             "returns": None,
-            
         }
 
         def iter_schema_key_type(properties: dict, defs: dict, defaults: dict = {}):
             iter_result = {}
             for key, value in properties.items():
-                if 'allOf' in value:
-                    ref_key = value['allOf'][0]["$ref"].split("/")[-1]
+                if "allOf" in value:
+                    ref_key = value["allOf"][0]["$ref"].split("/")[-1]
                     _properties = defs[ref_key]["properties"]
                     iter_result[key] = iter_schema_key_type(
                         _properties, defs, defaults.get(key, {})
                     )
                 else:
-                    if 'anyOf' in value:
-                        type = value['anyOf'][0]['type']
-                    elif '$ref' in value:
-                        ref_key = value['$ref'].split("/")[-1]
-                        type = defs[ref_key]['type']
+                    if "anyOf" in value:
+                        type = value["anyOf"][0]["type"]
+                    elif "$ref" in value:
+                        ref_key = value["$ref"].split("/")[-1]
+                        type = defs[ref_key]["type"]
                     else:
                         type = value["type"]
 
@@ -114,14 +110,18 @@ class BaseParse:
                     }
             return iter_result
 
-        config_schema = ConfigSchemaModel.model_json_schema(mode='serialization')
+        config_schema = ConfigSchemaModel.model_json_schema(mode="serialization")
         defaults = ConfigSchemaModel().model_dump()
-        configs = iter_schema_key_type(config_schema['properties'], config_schema['$defs'], defaults)
-        result.update({'configs': configs, 'config_schema': config_schema})
+        configs = iter_schema_key_type(
+            config_schema["properties"], config_schema["$defs"], defaults
+        )
+        result.update({"configs": configs, "config_schema": config_schema})
 
         if _return_cls is not None:
-            return_schema = _return_cls.model_json_schema(mode='serialization')
-            returns = iter_schema_key_type(return_schema['properties'], return_schema.get('$defs', {}), {})
+            return_schema = _return_cls.model_json_schema(mode="serialization")
+            returns = iter_schema_key_type(
+                return_schema["properties"], return_schema.get("$defs", {}), {}
+            )
             if returns:
                 result.update({"returns": returns})
 

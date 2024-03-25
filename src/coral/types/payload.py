@@ -1,18 +1,14 @@
-import atexit
-from functools import partial
 import time
 from enum import Enum
-from types import NoneType
 from typing_extensions import Annotated
-from typing import Any, List, Union, Dict, Optional
+from typing import List, Union, Dict, Optional
 
 import numpy as np
-import SharedArray as sa
 from loguru import logger
 from pydantic import BaseModel, Field, WithJsonSchema, PrivateAttr, computed_field
 from wrapyfi.publishers import Publishers
 
-from ..utils import generate_short_uid 
+from ..utils import generate_short_uid
 from ..constants import SHARED_DATA_TYPE
 from ..sched import SharedMemoryIDManager as SMIM
 
@@ -96,12 +92,12 @@ class ObjectPayload(BaseInterfaceItemPayload):
     Yolo推理任务单项结果
     """
 
-    id: Optional[Union[int, NoneType]] = None
+    id: Optional[Union[int, None]] = None
     label: str
     class_id: int
     prob: float
-    box: Optional[Union[Box, NoneType]] = None
-    objects: Optional[Union[List["ObjectPayload"], NoneType]] = None
+    box: Optional[Union[Box, None]] = None
+    objects: Optional[Union[List["ObjectPayload"], None]] = None
 
 
 class FirstPayload(ReturnPayload):
@@ -118,7 +114,7 @@ class ObjectsPayload(BaseInterfacePayload):
     """
 
     mode: InterfaceMode
-    objects: Union[List[ObjectPayload], NoneType] = None
+    objects: Union[List[ObjectPayload], None] = None
 
 
 class BaseRawPayload(CoralBaseModel):
@@ -137,12 +133,12 @@ class BaseRawPayload(CoralBaseModel):
         self._init_private_field(data)
 
     def model_dump(self, *args, **kwargs):
-        exclude = kwargs.get('exclude', [])
+        exclude = kwargs.get("exclude", [])
         if self._enable_shared_memory:
-            exclude.append('raw')
+            exclude.append("raw")
             data = super().model_dump(exclude=exclude, *args, **kwargs)
         else:
-            exclude.append('raw_shared_memory_id')
+            exclude.append("raw_shared_memory_id")
             data = super().model_dump(exclude=exclude, *args, **kwargs)
         return data
 
@@ -173,12 +169,12 @@ class BaseRawPayload(CoralBaseModel):
         memory_data = SMIM().add(_raw_shared_memory_id, _raw.shape, _raw.dtype)
         memory_data[:] = _raw
         return _raw, _raw_shared_memory_id
-    
+
     def _compare_and_repair_memory_data(self, _raw, _raw_shared_memory_id):
         """比较外部_raw和共享内存内的数据，并修复"""
         try:
             memory_data = SMIM().attach(_raw_shared_memory_id)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             _raw, _raw_shared_memory_id = self._create_shared_memory_data(_raw)
             logger.warning(
                 f"未找到共享内存: {_raw_shared_memory_id} 信息, 但是存在 _raw: "
@@ -273,8 +269,8 @@ class RawPayload(BaseRawPayload):
     source_id: str
     nodes_cost: float = 0
     timestamp: float = Field(default_factory=time.time)
-    objects: Union[List[ObjectPayload], NoneType] = None
-    metas: Union[Dict[str, ReturnPayload], NoneType] = None
+    objects: Union[List[ObjectPayload], None] = None
+    metas: Union[Dict[str, ReturnPayload], None] = None
 
 
 class DataTypeManager:

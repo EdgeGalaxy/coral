@@ -1,4 +1,3 @@
-import os
 from functools import cached_property
 from typing import List, Dict, Union
 
@@ -21,6 +20,7 @@ class ProtocalType:
     """
     通信协议类型
     """
+
     PUBSUB = "pubsub"
     REPLY = "reply"
 
@@ -29,6 +29,7 @@ class SenderMode:
     """
     发送者模式值
     """
+
     PUBLISH = "publish"
     REPLY = "reply"
 
@@ -37,6 +38,7 @@ class ReceiverMode:
     """
     接收者模式值
     """
+
     LISTEN = "listen"
     REQUEST = "request"
 
@@ -45,7 +47,8 @@ class ModeModel(BaseModel):
     """
     发送/接收者模式
     """
-    sender: str 
+
+    sender: str
     receiver: str
 
 
@@ -58,6 +61,7 @@ class PubSubBaseModel(CoralBaseModel):
     """
     节点通信通用格式
     """
+
     node_id: str = Field(frozen=True)
     raw_type: str = Field(frozen=True, default="RawImage")
     mware: str = Field(frozen=True, default="zeromq")
@@ -72,7 +76,8 @@ class PubSubBaseModel(CoralBaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         if not self.topic:
-            self.topic = f'{self.node_id}_{self.raw_type}_{self.mware}'
+            self.topic = f"{self.node_id}_{self.raw_type}_{self.mware}"
+
 
 class ReceiverModel(PubSubBaseModel):
 
@@ -107,7 +112,7 @@ class SenderModel(PubSubBaseModel):
             )
         if RTManager.default_type() is None:
             raise ValueError(
-                f"Not found ReturnPayload decorator by @RTManager.registry"
+                "Not found ReturnPayload decorator by @RTManager.registry"
             )
         if len(RTManager.registry.keys()) > 1:
             raise ValueError(
@@ -137,6 +142,7 @@ class MetaModel(CoralBaseModel):
     """
     sender & receiver 通信类
     """
+
     mode: str = Field(frozen=True, default=ProtocalType.PUBSUB)
     receivers: List[ReceiverModel] = Field(frozen=True, default=[])
     sender: SenderModel = Field(frozen=True, default=None)
@@ -155,6 +161,7 @@ class ProcessModel(CoralBaseModel):
     """
     系统参数设定
     """
+
     max_qsize: int = Field(frozen=True, default=180)
     count: int = Field(frozen=True, default=3)
     enable_parallel: bool = Field(frozen=True, default=False)
@@ -164,9 +171,17 @@ class GenericParamsModel(CoralBaseModel):
     """
     业务通用参数
     """
+
     skip_frame: int = Field(frozen=True, default=0, description="每隔几帧处理一次")
-    enable_metrics: bool = Field(frozen=True, default=True, description="是否开启服务监控")
-    enable_shared_memory: bool = Field(frozen=True, default=False, validate_default=True, description="是否开启共享内存")
+    enable_metrics: bool = Field(
+        frozen=True, default=True, description="是否开启服务监控"
+    )
+    enable_shared_memory: bool = Field(
+        frozen=True,
+        default=False,
+        validate_default=True,
+        description="是否开启共享内存",
+    )
 
     @field_validator("enable_shared_memory")
     @classmethod
@@ -174,7 +189,9 @@ class GenericParamsModel(CoralBaseModel):
         if ENABLE_SHARED_MEMORY is None:
             return v
 
-        logger.info(f'exist env [ CORAL_NODE_ENABLE_SHARED_MEMORY ], set enable_shared_memory is {ENABLE_SHARED_MEMORY} !')
+        logger.info(
+            f"exist env [ CORAL_NODE_ENABLE_SHARED_MEMORY ], set enable_shared_memory is {ENABLE_SHARED_MEMORY} !"
+        )
         if ENABLE_SHARED_MEMORY == "true":
             return True
         elif ENABLE_SHARED_MEMORY == "false":
@@ -187,6 +204,7 @@ class ConfigModel(CoralBaseModel):
     """
     节点通用配置类
     """
+
     pipeline_id: str = Field(frozen=True, default="default_pipeline")
     node_id: str = Field(frozen=True)
     process: ProcessModel = Field(frozen=True, default=ProcessModel())
@@ -201,7 +219,7 @@ class ConfigModel(CoralBaseModel):
             return v
         if PTManager.default_type() is None:
             raise ValueError(
-                f"未发现被 @PTManager.register() 装饰器包装的 ParamsModel 类"
+                "未发现被 @PTManager.register() 装饰器包装的 ParamsModel 类"
             )
         if len(PTManager.registry.keys()) > 1:
             raise ValueError(

@@ -1,6 +1,3 @@
-
-
-
 class CoralException(Exception):
     pass
 

@@ -25,8 +25,9 @@ os.makedirs(SHARED_MEMORY_ID_STORE_DIR, exist_ok=True)
 DELETE_SHARED_MEMORY_LOCK = os.path.join(LOCK_DIR, "shared_memory_delete.lock")
 
 # 节点共享内存过期时间
-CORAL_NODE_SHARED_MEMORY_EXPIRE = int(os.environ.get("CORAL_NODE_SHARED_MEMORY_EXPIRE", 20))
-
+CORAL_NODE_SHARED_MEMORY_EXPIRE = int(
+    os.environ.get("CORAL_NODE_SHARED_MEMORY_EXPIRE", 20)
+)
 
 
 # 节点注册环境变量
@@ -37,4 +38,4 @@ REGISTER_URL = os.environ.get("CORAL_NODE_REGISTER_URL")
 
 
 # 是否开启共享内存
-ENABLE_SHARED_MEMORY =  os.environ.get("CORAL_NODE_ENABLE_SHARED_MEMORY")
+ENABLE_SHARED_MEMORY = os.environ.get("CORAL_NODE_ENABLE_SHARED_MEMORY")

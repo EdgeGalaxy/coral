@@ -26,7 +26,7 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
         self._expire = expire
         self._memory_store = dict()
         self.__init_mamager(manager_id)
-    
+
     def __init_mamager(self, mamager_id):
         self.manager_id = mamager_id
         self._fp = os.path.join(SHARED_MEMORY_ID_STORE_DIR, f"{self.manager_id}.json")
@@ -35,11 +35,11 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
         self.interval_flush(self._expire * 1.5)
         # 注册停止操作
         atexit.register(self.dump)
-    
+
     def attach(self, memory_id):
         # attach memory时不更新 memory_store，因为memory的产生不一定是在当前节点
         memory_data = sa.attach(memory_id)
-        logger.debug(f'attach shared memory: {memory_id}')
+        logger.debug(f"attach shared memory: {memory_id}")
         return memory_data
 
     def add(self, memory_id: str, shape: tuple, dtype: np.dtype):
@@ -47,7 +47,7 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
         self._memory_store.update({memory_id: time.time()})
         logger.debug(f"create shared memory: {memory_id}")
         return memory_data
-    
+
     def remove(self, memory_id):
         try:
             self._memory_store.pop(memory_id, None)
@@ -56,15 +56,19 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
             logger.warning(f"not found memory id: {memory_id} info")
 
         logger.debug(f"release shared memory: {memory_id}")
-    
+
     def dump(self):
         with open(self._fp, "w") as f:
             json.dump(self._memory_store, f)
-        logger.info(f'dump shared memory id store: {self._fp} length: {len(self._memory_store)}')
-    
+        logger.info(
+            f"dump shared memory id store: {self._fp} length: {len(self._memory_store)}"
+        )
+
     def interval_flush(self, interval: int):
-        bg_tasks.add_job(self.remove_expired, 'interval', seconds=interval)
-        logger.info(f'interval flush shared memory id store: {self._fp} every {interval} seconds')
+        bg_tasks.add_job(self.remove_expired, "interval", seconds=interval)
+        logger.info(
+            f"interval flush shared memory id store: {self._fp} every {interval} seconds"
+        )
 
     def remove_expired(self):
         count = 0
@@ -72,7 +76,7 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
             if time.time() - timestamp > self._expire:
                 self.remove(memory_id)
                 count += 1
-        logger.info(f'remove expired shared memory id store: {self._fp} count: {count}')
+        logger.info(f"remove expired shared memory id store: {self._fp} count: {count}")
 
     def __load(self):
         try:
@@ -83,9 +87,7 @@ class SharedMemoryIDManager(metaclass=SingletonOptimized):
         except Exception as e:
             logger.warning(f"load shared memory id store: {self._fp} failed: {e}")
             return {}
-    
+
     def __load_and_flush(self):
         self.__load()
         self.remove_expired()
-
-        

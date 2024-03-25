@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import numpy as np
-from typing import List
 
 from pydantic import BaseModel
 # 将src加入到系统路径

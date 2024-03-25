@@ -1,7 +1,7 @@
 [project]
 name = "coral"
-version = "0.1.0"
-description = "Add a short description here"
+version = "0.1.1"
+description = "Coral(珊瑚)是一个封装了zeromq、ros2等底层通信工具的上层通用通信包，同时统一了标准的节点入参和通信数据格式的框架"
 authors = [
     { name = "zhaokefei", email = "zhaokefei@tezign.com" }
 ]
@@ -32,7 +32,6 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-virtual = true
 
 [tool.rye.workspace]
 members = ["src/coral-*"]
