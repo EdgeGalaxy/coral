@@ -35,6 +35,13 @@ rye build --clean
 rye publish --repository looptech --repository-url http://47.116.14.85:9000/simple -u looptech
 ```
 
+### 文档发布
+> 参考: [mkdocs deploy](https://www.mkdocs.org/user-guide/deploying-your-docs/#organization-and-user-pages)
+
+```shell
+mkdocs gh-deploy --config-file ../coral/mkdocs.yml --remote-branch hexo
+```
+
 
 ## 使用示例
 
