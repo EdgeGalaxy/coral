@@ -30,9 +30,17 @@ pip install loop-pycoral -i http://47.116.14.85:9000/simple --trusted-host 47.11
 ```
 
 ### 构建&发布
+
+- 配置发布工具
 ```shell
-rye build --clean
-rye publish --repository looptech --repository-url http://47.116.14.85:9000 -u looptech
+pip install poetry
+poetry config repositories.looptech http://47.116.14.85:9000                                                                                         
+poetry config http-basic.looptech <username>  <password>             
+```
+
+- 构建&发布
+```shell
+poetry publish -r looptech --build 
 ```
 
 ### 文档发布
