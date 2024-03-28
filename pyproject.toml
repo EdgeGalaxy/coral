@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "loop-pycoral"
-version = "0.1.3"
+version = "0.1.4"
 description = ""
 packages = [
-    {include="src", from="."}
+    {include="coral", from="src"}
 ]
 authors = ["zhaokefei <zhaokefei@tezign.com>"]
 readme = "README.md"
