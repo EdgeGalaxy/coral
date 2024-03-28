@@ -24,6 +24,17 @@
 1. 作为底层安装包, 支持继承开发
 2. 支持开发时按照约定文件格式仅开发功能代码，通过命令行运行开发代码, 生成一个新节点
 
+### 安装
+```shell
+pip install pycoral -i http://47.116.14.85:9000/simple --trusted-host 47.116.14.85
+```
+
+### 构建&发布
+```shell
+rye build --clean
+rye publish --repository looptech --repository-url http://47.116.14.85:9000/simple -u looptech
+```
+
 
 ## 使用示例
 

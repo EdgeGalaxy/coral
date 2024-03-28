@@ -7,7 +7,7 @@ Coral(珊瑚)是一个封装了zeromq、ros2等底层通信工具的上层通用
 
 ## 安装
 ```
-pip install coral
+pip install pycoral -i http://47.116.14.85:9000/simple --trusted-host 47.116.14.85
 ```
 
 

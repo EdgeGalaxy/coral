@@ -1,5 +1,5 @@
 [project]
-name = "coral"
+name = "pycoral"
 version = "0.1.1"
 description = "Coral(珊瑚)是一个封装了zeromq、ros2等底层通信工具的上层通用通信包，同时统一了标准的节点入参和通信数据格式的框架"
 authors = [
@@ -29,6 +29,9 @@ license = { text = "MIT" }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral"]
 
 [tool.rye]
 managed = true
