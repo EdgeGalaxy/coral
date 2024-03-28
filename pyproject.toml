@@ -1,6 +1,6 @@
 [project]
-name = "pycoral"
-version = "0.1.1"
+name = "loop-pycoral"
+version = "0.1.2"
 description = "Coral(珊瑚)是一个封装了zeromq、ros2等底层通信工具的上层通用通信包，同时统一了标准的节点入参和通信数据格式的框架"
 authors = [
     { name = "zhaokefei", email = "zhaokefei@tezign.com" }
@@ -15,7 +15,7 @@ dependencies = [
     "prometheus-client~=0.19.0",
     "schedule~=1.2.1",
     "filelock~=3.13.1",
-    "numpy~=1.24.3",
+    "numpy~=1.26.0",
     "opencv-python>=4.9.0.80",
     "requests>=2.31.0",
     "paho-mqtt>=2.0.0",

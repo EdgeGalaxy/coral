@@ -26,13 +26,13 @@
 
 ### 安装
 ```shell
-pip install pycoral -i http://47.116.14.85:9000/simple --trusted-host 47.116.14.85
+pip install loop-pycoral -i http://47.116.14.85:9000/simple --trusted-host 47.116.14.85
 ```
 
 ### 构建&发布
 ```shell
 rye build --clean
-rye publish --repository looptech --repository-url http://47.116.14.85:9000/simple -u looptech
+rye publish --repository looptech --repository-url http://47.116.14.85:9000 -u looptech
 ```
 
 ### 文档发布

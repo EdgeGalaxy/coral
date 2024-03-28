@@ -12,21 +12,21 @@
 annotated-types==0.6.0
     # via pydantic
 apscheduler==3.10.4
-    # via coral
+    # via loop-pycoral
 certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
 dotmap==1.3.30
-    # via coral
+    # via loop-pycoral
 filelock==3.13.1
-    # via coral
+    # via loop-pycoral
 idna==3.6
     # via requests
 loguru==0.7.2
-    # via coral
-numpy==1.24.4
-    # via coral
+    # via loop-pycoral
+numpy==1.26.4
+    # via loop-pycoral
     # via opencv-contrib-python
     # via opencv-python
     # via sharedarray
@@ -34,17 +34,17 @@ numpy==1.24.4
 opencv-contrib-python==4.9.0.80
     # via wrapyfi
 opencv-python==4.9.0.80
-    # via coral
+    # via loop-pycoral
 paho-mqtt==2.0.0
-    # via coral
+    # via loop-pycoral
 prometheus-client==0.19.0
-    # via coral
+    # via loop-pycoral
 pydantic==2.5.3
-    # via coral
+    # via loop-pycoral
 pydantic-core==2.14.6
     # via pydantic
 pyrsistent==0.20.0
-    # via coral
+    # via loop-pycoral
 pytz==2024.1
     # via apscheduler
 pyyaml==6.0.1
@@ -52,11 +52,11 @@ pyyaml==6.0.1
 pyzmq==25.1.2
     # via wrapyfi
 requests==2.31.0
-    # via coral
+    # via loop-pycoral
 schedule==1.2.1
-    # via coral
+    # via loop-pycoral
 sharedarray==3.2.3
-    # via coral
+    # via loop-pycoral
 six==1.16.0
     # via apscheduler
 typing-extensions==4.9.0
@@ -67,9 +67,9 @@ tzlocal==5.2
 urllib3==2.2.1
     # via requests
 wrapyfi==0.4.30
-    # via coral
+    # via loop-pycoral
     # via wrapyfi
 xmltodict==0.13.0
-    # via coral
+    # via loop-pycoral
 setuptools==69.0.3
     # via wrapyfi
