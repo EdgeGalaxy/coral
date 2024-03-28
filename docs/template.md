@@ -25,3 +25,13 @@ cookiecutter https://github.com/EdgeGalaxy/CoralNodeTemplate.git
     - `trigger`: 逻辑触发节点
     - `output`: 数据输出节点
 - `receiver_node`: 接收节点, 非`input`节点时必填
+
+
+## 包管理工具
+
+采用[`poetry`](https://python-poetry.org/docs/basic-usage/)作为包管理工具。常用的命令有：
+
+- `poetry add <package_name>`: 添加依赖
+- `poetry remove <package_name>`: 移除依赖
+- `poetry update <package_name>`: 更新依赖
+- `poetry shell`: 激活虚拟环境
